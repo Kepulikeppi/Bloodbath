@@ -1,0 +1,685 @@
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&display=swap');
+
+/* CORE STYLES */
+body { 
+    margin: 0; overflow: hidden; background-color: #000; 
+    font-family: 'Courier New', sans-serif; user-select: none; 
+}
+
+/* 1. BACKGROUND IMAGE */
+#menu-bg {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover;
+    
+    /* CHANGE THIS: Was -1, now 5. 
+       This places it ON TOP of the 3D canvas (0) 
+       but BELOW the UI (10). */
+    z-index: 5; 
+    
+    opacity: 0.6;
+}
+
+/* 2. SIDEBAR (The Main Container) */
+#ui-layer {
+    position: absolute; top: 0; left: 0; 
+    width: 28%; 
+    min-width: 350px; /* Don't get too small on phones */
+    height: 100%;
+    
+    background: rgba(0, 0, 0, 0.5); /* 50% opacity */
+    border-right: 2px solid #500; /* Red divider line */
+    backdrop-filter: blur(5px); /* Optional: blurs the image behind sidebar */
+    
+    display: flex; flex-direction: column; 
+    justify-content: space-between; /* Pushes Menu to top, Music to bottom */
+    padding: 40px;
+    box-sizing: border-box; /* Ensures padding doesn't break width */
+    z-index: 10;
+}
+
+/* SPLASH SCREEN (Overlay) */
+#splash-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000;
+    
+    /* CHANGE: Use column to stack text vertically */
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center;
+    gap: 15px; /* Space between the two lines */
+    
+    z-index: 20; cursor: pointer;
+    opacity: 1;
+    transition: opacity 2s ease-in-out;
+}
+#splash-screen.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+/* MAIN TEXT */
+#splash-text { 
+    color: #f00; 
+    font-size: 1.9rem; 
+    animation: blink 1s infinite; 
+}
+
+/* SUBTEXT */
+#splash-subtext {
+    color: #f00;
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem; /* Smaller font */
+    opacity: 0.7;      /* Slightly dimmer */
+    text-transform: uppercase; /* Optional: looks cleaner */
+    letter-spacing: 1px;
+    /* No animation property means no blinking */
+}
+
+/* MOBILE WARNING BOX */
+#mobile-warning {
+    text-align: center;
+    color: #f00;
+    font-family: 'Courier New', monospace;
+    border: 2px solid #f00;
+    background: rgba(0, 0, 0, 0.95);
+    box-shadow: 0 0 20px #f00;
+    
+    /* FIX: Responsive Width */
+    width: 90%;       /* Take up most of the screen width */
+    max-width: 600px; /* But don't get too wide on desktop */
+    padding: 30px 20px;
+    box-sizing: border-box;
+    
+    /* Center it */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#mobile-warning h2 {
+    font-size: 1.8rem; /* Larger header */
+    margin-top: 0;
+    margin-bottom: 20px;
+    animation: blink 2s infinite;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
+#mobile-warning p {
+    font-size: 1.1rem; /* Readable body text */
+    font-weight: bold;
+    line-height: 1.5;
+}
+
+#mobile-warning p.small {
+    font-size: 0.9rem;
+    color: #f55;
+    margin-bottom: 30px;
+    opacity: 0.8;
+}
+
+#mobile-continue-btn {
+    background: #000;
+    color: #f00;
+    border: 1px solid #f00;
+    
+    /* Fat Finger Friendly */
+    width: 100%;
+    padding: 20px; 
+    font-size: 1.2rem;
+    
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+#mobile-continue-btn:active {
+    background: #f00;
+    color: #000;
+}
+
+/* LOGO & MENU */
+h1 {
+    color: #e60000; 
+    font-family: 'IM Fell English SC', serif;
+    font-weight: bold; 
+    font-size: 3.8rem; 
+    
+    margin: 0 0 40px 0;
+    text-transform: uppercase; 
+    letter-spacing: 2px; 
+    text-shadow: 0 0 20px #800000; 
+    
+    border-bottom: 1px solid #500;
+    padding-bottom: 20px;
+    
+    /* Prevent line breaks */
+    white-space: nowrap;
+    
+    /* Optional: to cut off cleanly if it gets too big */
+    /* overflow: hidden; */ 
+    /* text-overflow: ellipsis; */
+}
+
+#menu-controls { display: flex; flex-direction: column; gap: 20px; }
+
+button#start-btn {
+    background: transparent; color: #f00;
+    border: 1px solid #f00; padding: 15px;
+    font-size: 1.5rem; cursor: pointer; font-family: 'Arial Black';
+    text-transform: uppercase; letter-spacing: 2px;
+    transition: 0.2s; text-align: left;
+}
+button#start-btn:hover { background: #f00; color: #000; box-shadow: 0 0 15px #f00; padding-left: 25px; }
+
+
+/* 3. MUSIC PLAYER (SIDEBAR FIXED) */
+#music-player {
+    border: 1px solid #500;
+    background: rgba(0, 0, 0, 0.9);
+    padding: 15px;
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px;
+    margin-top: auto;
+}
+
+/* Visualizer */
+#viz-canvas {
+    width: 100%; 
+    height: 50px;
+    background: #050000; 
+    border: 1px solid #500;
+    display: block;
+}
+
+/* Song Title */
+.track-info {
+    height: 24px; 
+    position: relative;
+    background: #000; 
+    border: 1px solid #500; 
+    color: #f00;
+    overflow: hidden; /* Hides the scrolling text */
+    display: flex;    /* Keeps children in a row */
+    align-items: center;
+}
+
+.scrolling-text {
+    display: flex;
+    position: absolute;
+    white-space: nowrap;
+    /* Move exactly half the width of the wrapper */
+    animation: infinite-scroll 25s linear infinite;
+}
+@keyframes infinite-scroll {
+    0% { transform: translateX(0); }
+    /* Move -50%. Since we have 2 identical spans, 
+       moving 50% perfectly replaces Span A with Span B. */
+    100% { transform: translateX(-50%); }
+}
+
+/* CONTAINER FOR BUTTONS & VOLUME */
+.controls-row {
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+}
+
+/* --- THE BUTTON FIX --- */
+/* We target ANY button inside #music-player */
+#music-player button {
+    -webkit-appearance: none; /* Safari/Chrome fix */
+    appearance: none;         /* Standard fix */
+    background: transparent; 
+    border: 1px solid #f00; 
+    color: #f00;
+    width: 35px; 
+    height: 35px; 
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0; /* KILLS THE ROUNDED CORNERS */
+    transition: all 0.2s;
+}
+
+#music-player button:hover { 
+    background: #f00; 
+    color: #000; 
+    box-shadow: 0 0 10px #f00;
+}
+
+/* Volume Slider */
+.vol-group { 
+    display: flex; 
+    align-items: center; 
+    gap: 5px; 
+}
+
+input[type=range] { 
+    width: 80px; 
+    accent-color: #f00; 
+    height: 4px; 
+    cursor: pointer;
+}
+
+
+
+/* CROSSHAIR & GAME UI */
+#crosshair {
+    position: absolute; top: 50%; left: 50%;
+    width: 4px; height: 4px; background-color: #f00;
+    border-radius: 50%; transform: translate(-50%, -50%);
+    pointer-events: none; z-index: 5; display: none;
+}
+
+/* FORCE GAME CANVAS POSITION */
+#game-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1; 
+    display: block;
+}
+
+/* PAUSE MENU OVERLAY */
+#pause-menu {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    
+    width: 500px;
+    background: rgba(0, 0, 0, 0.95);
+    border: 2px solid #f00;
+    box-shadow: 0 0 50px rgba(255, 0, 0, 0.2);
+    padding: 30px;
+    text-align: center;
+    z-index: 100;
+    
+    display: flex; flex-direction: column; gap: 20px;
+}
+
+#pause-menu h1 {
+    font-size: 2.5rem; margin: 0;
+    border-bottom: 1px solid #500; padding-bottom: 10px;
+}
+
+#pause-menu p {
+    color: #f00; font-family: 'Courier New', monospace;
+    font-weight: bold; animation: blink 1s infinite;
+}
+
+.menu-buttons {
+    display: flex; gap: 10px; justify-content: center;
+    margin-bottom: 10px;
+}
+
+.menu-buttons button {
+    background: transparent; border: 1px solid #f00; color: #f00;
+    padding: 10px 20px; font-family: 'Courier New', monospace;
+    font-weight: bold; cursor: pointer; transition: all 0.2s;
+}
+.menu-buttons button:hover {
+    background: #f00; color: #000;
+}
+
+/* OVERRIDE MUSIC PLAYER STYLES FOR PAUSE MENU */
+/* When the player is inside the pause menu, reset its position */
+#pause-menu #music-player {
+    position: relative; 
+    bottom: auto; left: auto; transform: none;
+    width: 100%; margin-top: 0;
+    box-sizing: border-box;
+}
+
+/* IN-GAME CONTROLS HUD */
+#controls-overlay {
+    position: absolute;
+    bottom: 30px; /* Moved up slightly */
+    left: 30px;   /* Moved right slightly */
+    z-index: 50;
+    
+    font-family: 'Courier New', monospace;
+    pointer-events: none; 
+    user-select: none;    
+    
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* More space between key and text */
+    
+    opacity: 0.9; /* Made it slightly more opaque (was 0.7) */
+    transition: opacity 0.3s;
+}
+
+/* The box around the key (ESC) */
+.key-badge {
+    border: 2px solid #f00; /* Thicker border */
+    background: rgba(20, 0, 0, 0.8);
+    color: #f00;
+    
+    padding: 8px 14px;  /* Bigger box */
+    font-weight: bold;
+    font-size: 1.4rem;  /* Much bigger text (was 0.9) */
+    
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.4);
+    border-radius: 4px; /* Slight rounded edge looks better on large keys */
+}
+
+/* The description text */
+.action-text {
+    color: #f00;
+    font-size: 1.2rem; /* Much bigger text (was 0.8) */
+    font-weight: bold;
+    text-shadow: 0 0 3px #000;
+    letter-spacing: 1px;
+}
+
+@keyframes blink { 
+    0%, 100% { opacity: 1; } 
+    50% { opacity: 0.3; } 
+}
+
+/* --- CREDITS SYSTEM --- */
+
+/* The Button in the Menu */
+#credits-btn {
+    background: transparent; 
+    color: #f00;
+    border: 1px solid #f00; 
+    padding: 15px;
+    font-size: 1.2rem; 
+    cursor: pointer; 
+    font-family: 'Arial Black', sans-serif;
+    text-transform: uppercase; 
+    letter-spacing: 2px;
+    transition: 0.2s; 
+    text-align: left;
+}
+#credits-btn:hover { 
+    background: #f00; 
+    color: #000; 
+    box-shadow: 0 0 15px #f00; 
+    padding-left: 25px; 
+}
+
+/* The Full Screen Overlay */
+#credits-overlay {
+    position: fixed; 
+    top: 0; left: 0; 
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 60; /* Above everything */
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    backdrop-filter: blur(5px);
+}
+
+/* The Box */
+.credits-box {
+    width: 600px;
+    max-width: 90%;
+    background: #050000;
+    border: 2px solid #f00;
+    box-shadow: 0 0 30px rgba(255, 0, 0, 0.3);
+    padding: 30px;
+    font-family: 'Courier New', monospace;
+    color: #f00;
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px;
+}
+
+.credits-box h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #500;
+    padding-bottom: 10px;
+    text-align: center;
+    letter-spacing: 3px;
+}
+
+/* Scrollable Content */
+.credits-content {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 10px;
+    line-height: 1.4;
+}
+
+.credits-content h3 {
+    color: #000;
+    background: #f00;
+    padding: 5px 10px;
+    margin-top: 20px;
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+.credits-content p, .credits-content li {
+    font-size: 0.9rem;
+    margin: 5px 0 5px 10px;
+    opacity: 0.9;
+}
+
+/* Custom Scrollbar */
+.credits-content::-webkit-scrollbar { width: 8px; }
+.credits-content::-webkit-scrollbar-track { background: #100; }
+.credits-content::-webkit-scrollbar-thumb { background: #f00; }
+
+/* Close Button */
+#credits-close-btn {
+    background: transparent; 
+    color: #fff;
+    border: 1px solid #fff; 
+    padding: 10px;
+    cursor: pointer; 
+    font-family: monospace;
+    font-weight: bold; 
+    margin-top: 10px;
+    transition: 0.2s;
+}
+#credits-close-btn:hover { 
+    background: #fff; 
+    color: #000; 
+}
+
+/* LEVEL COMPLETE OVERLAY */
+#level-screen {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    
+    width: 600px;
+    background: rgba(0, 10, 0, 0.95); /* Dark Green tint */
+    border: 2px solid #0f0; /* Green Border */
+    box-shadow: 0 0 50px rgba(0, 255, 0, 0.2);
+    padding: 40px;
+    text-align: center;
+    z-index: 100;
+    display: flex; flex-direction: column; gap: 30px;
+}
+
+#level-screen h1 {
+    color: #0f0;
+    font-family: 'Courier New', monospace;
+    font-size: 3rem; margin: 0;
+    letter-spacing: 5px;
+    text-shadow: 0 0 20px #0f0;
+    border-bottom: 1px solid #050;
+    padding-bottom: 20px;
+}
+
+.stats-box {
+    border: 1px solid #050;
+    background: rgba(0, 20, 0, 0.5);
+    padding: 20px;
+}
+
+.stats-box p {
+    color: #fff; font-family: 'Courier New', monospace;
+    font-size: 1.5rem; margin: 10px 0;
+}
+
+.stats-box span { color: #0f0; font-weight: bold; }
+
+#btn-next-level {
+    background: transparent; 
+    border: 2px solid #0f0; 
+    color: #0f0;
+    padding: 20px; 
+    font-family: 'Arial Black', sans-serif;
+    font-size: 1.5rem; 
+    cursor: pointer; 
+    transition: all 0.2s;
+    text-transform: uppercase;
+}
+
+#btn-next-level:hover {
+    background: #0f0; color: #000; box-shadow: 0 0 20px #0f0;
+}
+
+/* MINIMAP HUD */
+#minimap-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 50;
+    border: 2px solid #f00;
+    background: #000;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+    
+    /* Container needs to match canvas width roughly */
+    width: 230px;
+    display: flex;
+    flex-direction: column;
+}
+
+#minimap {
+    display: block;
+    background: rgba(0, 10, 0, 0.8); /* Dark radar green background */
+}
+
+.minimap-label {
+    background: #f00;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 2px 0;
+    border-top: 1px solid #500;
+}
+
+/* ZOOM BUTTONS CONTAINER */
+.minimap-zoom {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    display: flex;
+    flex-direction: column; /* Stack them vertically */
+    gap: 2px;
+}
+
+.minimap-zoom button {
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid #f00;
+    color: #f00;
+    width: 25px; 
+    height: 25px;
+    font-weight: bold;
+    font-family: monospace;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+}
+
+.minimap-zoom button:hover {
+    background: #f00;
+    color: #000;
+}
+
+/* FULL MAP OVERLAY */
+#full-map-overlay {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    
+    z-index: 40; 
+    
+    border: 2px solid #f00;
+    
+    /* CHANGE: Lower opacity from 0.9 to 0.4 */
+    background: rgba(0, 0, 0, 0.4); 
+    
+    /* Optional: Adds a cool frosted glass effect */
+    backdrop-filter: blur(2px); 
+    
+    box-shadow: 0 0 50px rgba(255, 0, 0, 0.1);
+    
+    display: flex;
+    flex-direction: column;
+}
+
+#full-map-canvas {
+    /* CHANGE: Remove solid hex color, make it transparent */
+    background: transparent; 
+    
+    max-width: 90vw;
+    max-height: 80vh;
+}
+
+/* TELEMETRY */
+#fps-counter {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 100;
+    
+    font-family: 'Courier New', monospace;
+    color: #0f0; /* Matrix Green for system data */
+    font-weight: bold;
+    font-size: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 5px 10px;
+    border: 1px solid #0f0;
+}
+
+.version-indicator {
+    align-self: flex-end;
+    margin-top: 10px;
+    color: #B70000;
+    opacity: 0.7;
+    font-size: 0.9em;
+}
+
+/* --- MOBILE SCREENS --- */
+@media (max-width: 600px) {
+    h1 {
+        font-size: 2.2rem;     /* Shrinks title for phones */
+        letter-spacing: 1px;   /* Slightly tighter spacing */
+        text-shadow: 0 0 10px #800000;
+    }
+
+    #ui-layer {
+        width: 85%;            /* Sidebar fits mobile screen better */
+        min-width: 0;          /* Allow smaller screens */
+        padding: 20px;         /* Reduce padding so title has more room */
+    }
+}

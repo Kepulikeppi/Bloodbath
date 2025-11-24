@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BLOODBATH - ACTIVE</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { cursor: none; background: #000; overflow: hidden; }
+        #game-canvas { display: block; z-index: 1; }
+        #crosshair { display: block; } 
+    </style>
+</head>
+<body>
+	<!-- MINIMAP -->
+    <div id="minimap-container">
+        <canvas id="minimap" width="230" height="230"></canvas>
+        <div class="minimap-label">SECTOR RADAR</div>
+        <!-- BUTTONS REMOVED HERE -->
+    </div>
+     <!-- NEW: FULL MAP OVERLAY (Hidden by default) -->
+    <div id="full-map-overlay" style="display: none;">
+        <canvas id="full-map-canvas" width="800" height="600"></canvas>
+        <div class="full-map-label">TACTICAL MAP OVERVIEW</div>
+    </div>
+
+
+	
+    <!-- CROSSHAIR -->
+    <div id="crosshair"></div>
+	
+	<!-- CONTROLS OVERLAY -->
+    <div id="controls-overlay">
+        <div class="control-row">
+            <span class="key-badge">ESC</span>
+            <span class="action-text">Release mouse / Pause game</span>
+        </div>
+        <div class="control-row">
+            <span class="key-badge">M</span>
+            <span class="action-text">Map</span>
+        </div>
+        <div class="control-row">
+            <span class="key-badge">N</span>
+            <span class="action-text">Toggle minimap</span>
+        </div>
+        <div class="control-row">
+            <span class="key-badge">K / L</span>
+            <span class="action-text">Minimap zoom</span>
+        </div>
+    </div>
+	
+	    
+<!-- FPS TELEMETRY (Hidden by default) -->
+    <div id="fps-counter" style="display: none;">
+        FPS: <span id="fps-value">0</span>
+    </div>
+
+  
+	
+    <!-- PAUSE MENU (Hidden by default) -->
+    <div id="pause-menu" style="display: none;">
+        <h1>GAME PAUSED</h1>
+        <p>MOUSE RELEASED</p>
+        
+        <div class="menu-buttons">
+            <button id="btn-resume">RESUME GAME</button>
+            <button id="btn-quit">EXIT TO MAIN MENU</button>
+        </div>
+
+        <!-- Music Player (Embedded in Pause Menu) -->
+        <div id="music-player">
+            <canvas id="viz-canvas" width="400" height="40"></canvas>
+            
+            <div class="track-info">
+                <div class="scrolling-text" id="track-name">Standby</div>
+            </div>
+
+            <div class="controls-row">
+                <div class="btn-group">
+                    <button id="btn-stop">■</button>
+                    <button id="btn-play">▶</button>
+                    <button id="btn-next">>></button>
+                </div>
+                <div class="vol-group">
+                    <input type="range" id="vol-music" min="0" max="1" step="0.1" value="0.5">
+                </div>
+            </div>
+        </div>
+    </div>
+	
+	<!-- LEVEL COMPLETE SCREEN -->
+    <div id="level-screen" style="display: none;">
+        <h1>LEVEL CLEARED</h1>
+        
+        <div class="stats-box">
+            <p>DEPTH REACHED: <span id="score-level">1</span></p>
+            <p>TIME ELAPSED: <span id="score-time">00:00</span></p>
+        </div>
+
+        <button id="btn-next-level">CONTINUE</button>
+    </div>
+    
+    <!-- Load Game Logic -->
+    <script type="module" src="./src/game.js"></script>
+</body>
+</html>

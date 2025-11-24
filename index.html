@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<meta property="og:title" content="BLOODBATH">
+	<meta property="og:description" content="A browser-based shooter with procedural map generation">
+	<meta property="og:type" content="website">
+
+	<!-- Small preview image -->
+	<meta property="og:image" content="https://kepulikeppi.com/games/bloodbath/bloodbath-icon-small.jpg">
+	<meta property="og:image:type" content="image/jpeg">
+	<meta property="og:image:width" content="128">
+	<meta property="og:image:height" content="128">
+
+	<meta property="og:url" content="https://kepulikeppi.com">
+    <title>BLOODBATH - MENU</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Background Image -->
+    <img id="menu-bg" src="./assets/background2.jpg" alt="Background">
+
+       
+	<!-- Splash Screen -->
+    <div id="splash-screen">
+        <!-- Standard PC Text -->
+        <div id="splash-text">+ CLICK TO INITIALIZE +</div>
+		<div id="splash-subtext">(Attention: this website will play audio)</div>
+
+        <!-- Mobile Warning (Hidden by default) -->
+        <div id="mobile-warning" style="display: none;">
+            <h2>⚠ WARNING ⚠</h2>
+            <p>MOBILE DEVICE DETECTED</p>
+            <p class="small">This game relies on Mouse & Keyboard input.<br>Experience may be compromised.</p>
+            <button id="mobile-continue-btn"> UNDERSTOOD. CONTINUE </button>
+        </div>
+    </div>
+
+  
+
+    <!-- Sidebar UI -->
+    <div id="ui-layer">
+        
+        <div class="menu-top">
+            <h1>BLOODBATH</h1>
+			
+            <div id="menu-controls">
+                <button id="start-btn">NEW GAME</button>
+				<button id="credits-btn">CREDITS</button>
+				  
+            </div>
+			
+        </div>
+
+        <!-- Music Player -->
+        <div id="music-player">
+            <canvas id="viz-canvas" width="250" height="50"></canvas>
+            
+            <div class="track-info">
+                <div class="scrolling-text" id="track-name">Standby mode</div>
+            </div>
+
+            <!-- This row holds buttons AND volume side-by-side -->
+            <div class="controls-row">
+                
+                <!-- Just the buttons here -->
+                <div style="display: flex; gap: 5px;">
+                    <button id="btn-stop">■</button>
+                    <button id="btn-play">▶</button>
+                    <button id="btn-next">>></button>
+                </div>
+
+                <!-- Volume on the right -->
+                <div class="vol-group">
+                    <input type="range" id="vol-music" min="0" max="1" step="0.1" value="0.5">
+                </div>
+            </div>
+        </div>
+
+    </div>
+	<div id="credits-overlay" style="display: none;">
+    <div class="credits-box">
+        <h2>// CREDITS //</h2>
+        
+        <div class="credits-content">
+            <h3>DESIGN AND PROGRAMMING</h3>
+            <p>Kepulikeppi</p>
+            
+            <h3>MUSIC</h3>
+            <p>Kepulikeppi</p>
+            <ul class="credit-list">
+				<li>Bloodbath - Main Theme</li>
+                <li>Tale of an Ancient Hero</li>
+                <li>Bloodthirsty Clown</li>
+                <li>Welcome to Hell</li>
+            </ul>
+
+            <h3>TEXTURE PACKS</h3>
+            <p>AmbientCG.com (Creative Commons Zero)</p>
+            
+            <h3>SOUND EFFECTS</h3>
+            <p>Freesound.org (Creative Commons Zero)</p>
+			<p>Pixabay.com (Creative Commons Zero)</p>
+            
+        </div>
+
+        <button id="credits-close-btn">[ CLOSE ]</button>
+    </div>
+</div>
+    <!-- Load ONLY Menu Logic -->
+    <script type="module" src="./src/menu.js"></script>
+</body>
+</html>
