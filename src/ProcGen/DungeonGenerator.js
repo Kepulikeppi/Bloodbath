@@ -78,6 +78,11 @@ export class DungeonGenerator {
             type: 'main',
             depth: 0
         };
+        // Add center property for compatibility with game.js
+        firstRoom.center = {
+            x: Math.floor(firstRoom.x + firstRoom.w / 2),
+            y: Math.floor(firstRoom.y + firstRoom.h / 2)
+        };
         
         this.rooms.push(firstRoom);
         this.carveRoom(firstRoom);
@@ -246,6 +251,11 @@ export class DungeonGenerator {
                     type,
                     connectionDir: direction
                 };
+                // Add center property for compatibility with game.js
+                newRoom.center = {
+                    x: Math.floor(newRoom.x + newRoom.w / 2),
+                    y: Math.floor(newRoom.y + newRoom.h / 2)
+                };
                 
                 if (this.canPlaceRoom(newRoom)) {
                     return newRoom;
@@ -292,14 +302,70 @@ export class DungeonGenerator {
     connectRooms(room1, room2, direction) {
         const exit1 = this.getExitPoint(room1, direction);
         const exit2 = this.getExitPoint(room2, this.getOpposite(direction));
-        const width = this.rng.range(3, this.params.corridorWidth + 1);
         
-        this.carveCorridor(exit1.x, exit1.y, exit2.x, exit2.y, width);
+        // 20% doorway, 80% corridor
+        const isDoorway = this.rng.next() < 0.20;
         
-        this.doorways.push({
-            x: Math.floor((exit1.x + exit2.x) / 2),
-            y: Math.floor((exit1.y + exit2.y) / 2)
-        });
+        if (isDoorway) {
+            // Tight doorway - narrow width, minimal length
+            const width = this.rng.range(2, 3);
+            this.carveCorridor(exit1.x, exit1.y, exit2.x, exit2.y, width);
+            
+            this.doorways.push({
+                x: Math.floor((exit1.x + exit2.x) / 2),
+                y: Math.floor((exit1.y + exit2.y) / 2)
+            });
+        } else {
+            // Corridor with varying width and length
+            // Width: narrow (3-4), medium (5-6), wide (7-9)
+            const widthRoll = this.rng.next();
+            let width;
+            if (widthRoll < 0.33) {
+                width = this.rng.range(3, 4);  // Narrow
+            } else if (widthRoll < 0.66) {
+                width = this.rng.range(5, 6);  // Medium
+            } else {
+                width = this.rng.range(7, 9);  // Wide
+            }
+            
+            // Length extension: short (0), medium (3-8), long (10-18), very long (20-35)
+            const lengthRoll = this.rng.next();
+            let extraLength;
+            if (lengthRoll < 0.35) {
+                extraLength = 0;  // Short - direct connection
+            } else if (lengthRoll < 0.65) {
+                extraLength = this.rng.range(3, 8);  // Medium
+            } else if (lengthRoll < 0.90) {
+                extraLength = this.rng.range(10, 18);  // Long
+            } else {
+                extraLength = this.rng.range(20, 35);  // Very long
+            }
+            
+            // Extend the corridor by pushing exit points apart
+            if (extraLength > 0) {
+                const halfExtra = Math.floor(extraLength / 2);
+                switch (direction) {
+                    case 'N':
+                        exit1.y += halfExtra;
+                        exit2.y -= halfExtra;
+                        break;
+                    case 'S':
+                        exit1.y -= halfExtra;
+                        exit2.y += halfExtra;
+                        break;
+                    case 'E':
+                        exit1.x -= halfExtra;
+                        exit2.x += halfExtra;
+                        break;
+                    case 'W':
+                        exit1.x += halfExtra;
+                        exit2.x -= halfExtra;
+                        break;
+                }
+            }
+            
+            this.carveCorridor(exit1.x, exit1.y, exit2.x, exit2.y, width);
+        }
     }
 
     carveCorridor(x1, y1, x2, y2, width) {
