@@ -3,14 +3,17 @@ export const Config = {
     MAP_WIDTH: 200,
     MAP_HEIGHT: 200,
     
-    // Room Settings
-    ROOM_COUNT: 25,
-    ROOM_MIN_SIZE: 15,
-    ROOM_MAX_SIZE: 40,
-    ROOM_PADDING: 6, 
-    
-    // Corridor Settings
-    CORRIDOR_WIDTH: 4, 
+    // Dungeon Generation (Diablo-style)
+    TARGET_ROOMS: 12,        // Main path length
+    BRANCH_CHANCE: 40,       // % chance for side branches
+    MAX_BRANCH_DEPTH: 3,     // How deep branches can go
+    ROOM_MIN_SIZE: 10,
+    ROOM_MAX_SIZE: 30,
+    DIRECTION_WIGGLE: 80,    // Path randomness (0=straight, 90=chaotic)
+    CORRIDOR_WIDTH: 4,
+
+    // Wall Geometry
+    WALL_HEIGHT: 4,
 
     // --- PLAYER PHYSICS ---
     PLAYER_SPEED: 8.0,
