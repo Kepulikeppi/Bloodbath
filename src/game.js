@@ -25,10 +25,7 @@ const loadingTitle = document.getElementById('loading-title');
 const loadingText = document.getElementById('loading-text');
 const loadingBar = document.getElementById('loading-bar');
 
-loadingTitle.innerText = "LEVEL " + currentLevel;
-
-// --- 2. SYSTEM SETUP ---
-const input = new Input();
+if(loadingTitle) loadingTitle.innerText = "LEVEL " + currentLevel;
 
 let savedVolume = Config.AUDIO_DEFAULT_VOL;
 try {
@@ -36,6 +33,8 @@ try {
     if(v !== null) savedVolume = parseFloat(v);
 } catch(e) {}
 
+// --- 2. SETUP SYSTEMS ---
+const input = new Input();
 const audioManager = new AudioManager();
 audioManager.setPlaylist(Config.PLAYLIST);
 audioManager.setVolume(savedVolume);
@@ -45,8 +44,9 @@ let weapon = null;
 let minimap = null;
 let enemies = []; 
 let exitObject = null; 
-let gameActive = false; // Start paused/loading
+let gameActive = false; // Start paused
 let isLevelReady = false;
+let levelMeshes = []; // For wall splats
 
 const raycaster = new THREE.Raycaster();
 
@@ -79,16 +79,13 @@ engine.renderer.domElement.id = 'game-canvas';
 let generator, mapData, debrisSystem, builder;
 
 function loadLevel() {
-    // Update UI
-    loadingBar.style.width = "10%";
-    loadingText.innerText = "GENERATING SECTOR...";
+    if(loadingBar) loadingBar.style.width = "10%";
+    if(loadingText) loadingText.innerText = "GENERATING SECTOR...";
 
-    // Use Timeout to let the UI paint before blocking CPU
     setTimeout(() => {
-        
         // A. Initialize Systems
         debrisSystem = new DebrisSystem(engine.scene); 
-        loadingBar.style.width = "30%";
+        if(loadingBar) loadingBar.style.width = "30%";
 
         // B. Generate World
         const levelScale = 1 + (currentLevel * 0.1);
@@ -99,43 +96,43 @@ function loadLevel() {
         generator = new DungeonGenerator(seed, mapWidth, mapHeight);
         mapData = generator.generate();
         
-        loadingBar.style.width = "60%";
+        if(loadingBar) loadingBar.style.width = "60%";
 
         // C. Build Mesh
         builder = new LevelBuilder(engine.scene);
         builder.build(mapData);
-        loadingBar.style.width = "80%";
+        
+        // Collect level meshes for raycasting (walls/floors)
+        levelMeshes = [];
+        engine.scene.traverse(obj => {
+            if (obj.isInstancedMesh) levelMeshes.push(obj);
+        });
+
+        if(loadingBar) loadingBar.style.width = "80%";
 
         // D. Spawn Objects
         spawnGameObjects();
-        loadingBar.style.width = "90%";
+        if(loadingBar) loadingBar.style.width = "90%";
 
-        // E. WARM UP RENDER (Compiles Shaders)
-        // We render once while hidden to prevent the "stutter" on first frame
+        // E. WARM UP RENDER
         engine.renderer.render(engine.scene, engine.camera);
         
         // F. Finish
-        loadingBar.style.width = "100%";
-        loadingText.innerText = "CLICK TO START";
+        if(loadingBar) loadingBar.style.width = "100%";
+        if(loadingText) loadingText.innerText = "CLICK TO START";
         isLevelReady = true;
         
-    }, 100); // Short delay to ensure UI shows up
+    }, 100);
 }
 
-// Helper function for spawning logic
 function spawnGameObjects() {
-    // Spawn Player
     const spawnPoint = findSafeSpawn();
     engine.camera.position.set(spawnPoint.x + 0.5, Config.EYE_HEIGHT, spawnPoint.z + 0.5);
+    
     player = new Player(engine.camera, mapData, audioManager);
-    
-    // Weapon
     weapon = new RangedWeapon(engine.camera, WeaponConfig.PISTOL_9MM, audioManager);
-    
-    // Minimap
     minimap = new Minimap(mapData);
     
-    // Enemies
     enemies = []; 
     if (generator.rooms) {
         generator.rooms.forEach((room) => {
@@ -145,17 +142,15 @@ function spawnGameObjects() {
         });
     }
 
-    // Exit
     if (generator.endRoom) {
         exitObject = builder.createExit(generator.endRoom.center.x, generator.endRoom.center.y);
     }
 }
 
-// Start the loading process
 loadLevel();
 
+// --- 4. HELPERS ---
 
-// --- HELPERS (Spawn Logic) ---
 function isFloor(x, y) {
     return y >= 0 && y < mapData.length && x >= 0 && x < mapData[0].length && mapData[y][x] === 0;
 }
@@ -201,70 +196,61 @@ function finishLevel() {
     }
 }
 
-// --- INPUT & UI ---
+// --- 5. INPUT & SHOOTING ---
 
-// Start Click (Handles Loading Screen -> Game)
-document.body.addEventListener('click', () => {
-    if (!isLevelReady) return; // Ignore clicks while generating
-
-    // Resume Audio Context
-    if (audioManager.listener.context.state === 'suspended') {
-        audioManager.listener.context.resume();
-    }
-
-    // Transition from Load Screen to Game
-    if (loadingScreen.style.display !== 'none') {
-        loadingScreen.classList.add('fade-out');
-        setTimeout(() => { loadingScreen.style.display = 'none'; }, 500);
-        
-        gameActive = true;
-        engine.controls.lock();
-        
-        // Auto-play music check
-        if (sessionStorage.getItem('bloodbath_music_active') === 'true' && !audioManager.isPlaying) {
-            audioManager.play();
-        }
-        return;
-    }
-
-    // Normal Game Resume
-    if (gameActive && !engine.controls.isLocked && pauseMenu.style.display === 'none') {
-        engine.controls.lock();
-    }
-});
-
-// Shooting
 document.addEventListener('mousedown', (e) => {
+    // Only shoot if game is active AND mouse is locked
     if (gameActive && engine.controls.isLocked && weapon) {
         if (e.button === 0) { 
             const didShoot = weapon.trigger(); 
+            
             if (didShoot) {
                 raycaster.setFromCamera(new THREE.Vector2(0, 0), engine.camera);
+                
                 const enemyMeshes = enemies.map(e => e.mesh);
-                const hits = raycaster.intersectObjects(enemyMeshes, true); 
+                // Combine Enemies and Level Geometry for hit detection
+                const allTargets = [...enemyMeshes, ...levelMeshes];
+                
+                const hits = raycaster.intersectObjects(allTargets, true); 
 
                 if (hits.length > 0) {
-                    let target = hits[0].object;
-                    while(target && !target.userData.parent) target = target.parent;
-                    const enemyInstance = target ? target.userData.parent : null;
-                    const hitPoint = hits[0].point;
-                    const shootDir = engine.camera.getWorldDirection(new THREE.Vector3());
+                    // Filter close hits (barrel clipping)
+                    const validHit = hits.find(h => h.distance > 0.5);
+                    
+                    if (validHit) {
+                        const hitObject = validHit.object;
+                        
+                        // Check if Enemy
+                        let target = hitObject;
+                        while(target && !target.userData.parent) target = target.parent;
+                        const enemyInstance = target ? target.userData.parent : null;
+                        
+                        const hitPoint = validHit.point;
+                        const normal = validHit.face.normal;
+                        const shootDir = engine.camera.getWorldDirection(new THREE.Vector3());
 
-                    if (enemyInstance) {
-                        const damage = WeaponConfig.PISTOL_9MM.damage;
-                        const died = enemyInstance.takeDamage(damage);
-                        if (died) {
-                            audioManager.playSFX('death');
-                            enemies = enemies.filter(e => e !== enemyInstance);
-                            const gibOrigin = enemyInstance.mesh.position.clone();
-                            gibOrigin.y += 1.8; 
-                            debrisSystem.spawnGibs(gibOrigin, Config.GORE.COLOR_FLESH); 
-                            debrisSystem.spawnGibs(gibOrigin, Config.GORE.COLOR_BONE); 
-                            debrisSystem.spawnSplat(enemyInstance.mesh.position);
+                        if (enemyInstance) {
+                            // HIT ENEMY
+                            const damage = WeaponConfig.PISTOL_9MM.damage;
+                            const died = enemyInstance.takeDamage(damage);
+                            
+                            if (died) {
+                                audioManager.playSFX('death');
+                                enemies = enemies.filter(e => e !== enemyInstance);
+                                
+                                const gibOrigin = enemyInstance.mesh.position.clone();
+                                gibOrigin.y += 1.8; 
+                                debrisSystem.spawnGibs(gibOrigin, Config.GORE.COLOR_FLESH); 
+                                debrisSystem.spawnGibs(gibOrigin, Config.GORE.COLOR_BONE); 
+                                debrisSystem.spawnSplat(enemyInstance.mesh.position, new THREE.Vector3(0,1,0));
+                            } else {
+                                audioManager.playSFX('hit');
+                                debrisSystem.spawnBlood(hitPoint, shootDir);
+                                debrisSystem.spawnSplat(enemyInstance.mesh.position, new THREE.Vector3(0,1,0));
+                            }
                         } else {
-                            audioManager.playSFX('hit');
-                            debrisSystem.spawnBlood(hitPoint, shootDir);
-                            debrisSystem.spawnSplat(enemyInstance.mesh.position);
+                            // HIT WALL/FLOOR (Spawn Decal)
+                            debrisSystem.spawnSplat(hitPoint, normal);
                         }
                     }
                 }
@@ -287,8 +273,38 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// --- 6. UI HANDLERS ---
 const pauseMenu = document.getElementById('pause-menu');
 const crosshair = document.getElementById('crosshair');
+const startPrompt = document.getElementById('start-prompt');
+
+// Start Click (Loading Screen -> Game)
+document.body.addEventListener('click', () => {
+    if (!isLevelReady) return;
+
+    if (audioManager.listener.context.state === 'suspended') {
+        audioManager.listener.context.resume();
+    }
+
+    // Hide Loading Screen
+    if (loadingScreen && loadingScreen.style.display !== 'none') {
+        loadingScreen.classList.add('fade-out');
+        setTimeout(() => { loadingScreen.style.display = 'none'; }, 500);
+        
+        gameActive = true;
+        engine.controls.lock();
+        
+        if (sessionStorage.getItem('bloodbath_music_active') === 'true' && !audioManager.isPlaying) {
+            audioManager.play();
+        }
+        return;
+    }
+
+    // Normal Resume
+    if (gameActive && !engine.controls.isLocked && pauseMenu.style.display === 'none') {
+        engine.controls.lock();
+    }
+});
 
 engine.controls.addEventListener('unlock', () => {
     if (gameActive) {
@@ -303,6 +319,7 @@ engine.controls.addEventListener('lock', () => {
         pauseMenu.style.display = 'none';
         crosshair.style.display = 'block';
         document.body.style.cursor = 'none';
+        if (startPrompt) startPrompt.style.display = 'none';
     }
 });
 
@@ -311,6 +328,7 @@ document.getElementById('btn-quit').addEventListener('click', () => window.locat
 document.getElementById('btn-next-level').addEventListener('click', () => {
     if (audioManager.isPlaying) sessionStorage.setItem('bloodbath_music_active', 'true');
     else sessionStorage.setItem('bloodbath_music_active', 'false');
+
     const nextLevel = currentLevel + 1;
     const nextSeed = "SEED-" + Math.floor(Math.random() * 999999);
     window.location.href = `game.html?seed=${nextSeed}&level=${nextLevel}`;
@@ -370,5 +388,6 @@ function drawLoop() {
 }
 drawLoop();
 
-pauseMenu.style.display = 'none';
+// --- DEBUG ---
+function printConsoleMap(map, start, end) { /*...*/ }
 console.log("Game Ready.");
