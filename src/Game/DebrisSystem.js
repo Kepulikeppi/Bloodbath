@@ -4,60 +4,79 @@ import { Config } from '../Config.js';
 export class DebrisSystem {
     constructor(scene) {
         this.scene = scene;
-        this.particles = [];
         this.decals = []; 
-        
-        // USE CONFIG
-        this.MAX_DECALS = Config.GORE.MAX_DECALS; 
+        this.MAX_DECALS = Config.GORE.MAX_DECALS; // Limit floor stains
 
-        // 1. GENERATE TEXTURE
-        this.bloodTexture = this.createBloodTexture();
+        // --- 1. SHARED RESOURCES (Create Once, Use Forever) ---
         
-        // 2. DARKER BLOOD MATERIAL
+        // Decal Geometry & Material
+        this.decalGeo = new THREE.PlaneGeometry(1, 1);
+        const loader = new THREE.TextureLoader();
+        const bloodTex = loader.load(Config.TEX_BLOOD || './assets/textures/blood_decal.png');
+        bloodTex.colorSpace = THREE.SRGBColorSpace;
+        
         this.bloodMaterial = new THREE.MeshStandardMaterial({
-            map: this.bloodTexture,
+            map: bloodTex,
             transparent: true,
             depthWrite: false,      
             polygonOffset: true,    
             polygonOffsetFactor: -1, 
-            
-            // USE CONFIG
             color: Config.GORE.COLOR_BLOOD,        
-            
             roughness: 0.1,         
             metalness: 0.0,         
             opacity: 0.9            
         });
-        
-        this.decalGeo = new THREE.PlaneGeometry(1, 1);
-    }
 
-    createBloodTexture() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 128;
-        canvas.height = 128;
-        const ctx = canvas.getContext('2d');
+        // Gibs (Chunks) Resources
+        this.chunkGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+        this.fleshMat = new THREE.MeshStandardMaterial({ color: Config.GORE.COLOR_FLESH, roughness: 0.5 });
+        this.boneMat = new THREE.MeshStandardMaterial({ color: Config.GORE.COLOR_BONE, roughness: 0.5 });
 
-        ctx.fillStyle = '#ffffff'; 
-        
-        for (let i = 0; i < 20; i++) {
-            const cx = 64 + (Math.random() - 0.5) * 50;
-            const cy = 64 + (Math.random() - 0.5) * 50;
-            const radius = 5 + Math.random() * 20;
-            
-            ctx.beginPath();
-            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-            ctx.fill();
+        // Spray (Drops) Resources
+        this.sprayGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+        this.sprayMat = new THREE.MeshBasicMaterial({ color: Config.GORE.COLOR_BLOOD });
+
+        // --- 2. OBJECT POOLING ---
+        // We create 200 invisible objects at start. 
+        // When we need one, we grab it, move it, and show it.
+        this.poolSize = 200;
+        this.particlePool = [];
+
+        for (let i = 0; i < this.poolSize; i++) {
+            const mesh = new THREE.Mesh(this.chunkGeo, this.fleshMat);
+            mesh.visible = false; // Start hidden
+            mesh.frustumCulled = false; // Optimization: Always update them even if off-screen slightly
+            this.scene.add(mesh);
+
+            this.particlePool.push({
+                mesh: mesh,
+                active: false,
+                velocity: new THREE.Vector3(),
+                gravityScale: 1.0,
+                floorTimer: 0,
+                onFloor: false
+            });
         }
-
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.colorSpace = THREE.SRGBColorSpace;
-        return tex;
     }
 
-    // 1. PERMANENT BLOOD STAIN
+    // Helper: Find an unused particle
+    getFreeParticle() {
+        // Find first inactive particle
+        for (let i = 0; i < this.poolSize; i++) {
+            if (!this.particlePool[i].active) return this.particlePool[i];
+        }
+        // If all 200 are busy, overwrite the oldest one (index 0) 
+        // This prevents the game from crashing if too much stuff happens
+        return this.particlePool[0];
+    }
+
+    // --- SPAWNING ---
+
     spawnSplat(position) {
-        const mesh = new THREE.Mesh(this.decalGeo, this.bloodMaterial); // clone() not strictly needed if just pos/rot changes
+        // Decals are static, so we can just create Meshes (they are cheap compared to physics objects)
+        // CRITICAL OPTIMIZATION: DO NOT CLONE MATERIAL. Use the shared one.
+        const mesh = new THREE.Mesh(this.decalGeo, this.bloodMaterial);
+        
         mesh.position.set(position.x, 0.02, position.z);
         mesh.rotation.x = -Math.PI / 2;
         mesh.rotation.z = Math.random() * Math.PI * 2;
@@ -71,80 +90,79 @@ export class DebrisSystem {
         if (this.decals.length > this.MAX_DECALS) {
             const old = this.decals.shift(); 
             this.scene.remove(old);
-            if (old.material) old.material.dispose();
-            if (old.geometry) old.geometry.dispose();
+            // Reuse geometry/material, so only dispose the Mesh container logic
         }
     }
 
-    // 2. BLOOD SPURT
     spawnBlood(position, direction) {
-        // USE CONFIG
         const count = Config.GORE.BLOOD_SPRAY_COUNT;
-        const geo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
-        
-        // USE CONFIG
-        const mat = new THREE.MeshBasicMaterial({ color: Config.GORE.COLOR_BLOOD });
 
         for (let i = 0; i < count; i++) {
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.copy(position);
+            const p = this.getFreeParticle();
             
-            mesh.position.x += (Math.random() - 0.5) * 0.2;
-            mesh.position.y += (Math.random() - 0.5) * 0.2;
-            mesh.position.z += (Math.random() - 0.5) * 0.2;
+            // Reset State
+            p.active = true;
+            p.mesh.visible = true;
+            p.mesh.geometry = this.sprayGeo; // Swap geometry to Spray
+            p.mesh.material = this.sprayMat; // Swap material to Spray
+            
+            p.mesh.position.copy(position);
+            p.mesh.scale.set(1, 1, 1);
+            p.onFloor = false;
+            p.floorTimer = 1.0;
+            p.gravityScale = 0.5;
 
-            const velocity = direction.clone().multiplyScalar(2.0); 
-            velocity.x += (Math.random() - 0.5) * 3;
-            velocity.y += (Math.random() - 0.5) * 3;
-            velocity.z += (Math.random() - 0.5) * 3;
+            // Randomize Position
+            p.mesh.position.x += (Math.random() - 0.5) * 0.2;
+            p.mesh.position.y += (Math.random() - 0.5) * 0.2;
+            p.mesh.position.z += (Math.random() - 0.5) * 0.2;
 
-            this.addParticle(mesh, velocity, 0.5); 
+            // Velocity
+            p.velocity.copy(direction).multiplyScalar(2.0);
+            p.velocity.x += (Math.random() - 0.5) * 3;
+            p.velocity.y += (Math.random() - 0.5) * 3;
+            p.velocity.z += (Math.random() - 0.5) * 3;
         }
     }
 
-    // 3. BODY CHUNKS
     spawnGibs(position, color) {
-        const count = Config.GORE.GIBS_COUNT; // Uses your new config
-        const geo = new THREE.BoxGeometry(0.3, 0.3, 0.3); 
-        const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 });
+        const count = Config.GORE.GIBS_COUNT;
+        // Choose correct shared material
+        const mat = (color === Config.GORE.COLOR_BONE) ? this.boneMat : this.fleshMat;
 
         for (let i = 0; i < count; i++) {
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.copy(position);
+            const p = this.getFreeParticle();
+
+            // Reset State
+            p.active = true;
+            p.mesh.visible = true;
+            p.mesh.geometry = this.chunkGeo; // Swap geometry to Chunk
+            p.mesh.material = mat;           // Swap material
             
-            // Randomize start pos slightly (cluster around the chest)
-            mesh.position.x += (Math.random() - 0.5) * 0.5;
-            mesh.position.y += (Math.random() - 0.5) * 0.5;
-            mesh.position.z += (Math.random() - 0.5) * 0.5;
+            p.mesh.position.copy(position);
+            p.mesh.scale.set(1, 1, 1);
+            p.onFloor = false;
+            p.floorTimer = 5.0; // Chunks stay longer
+            p.gravityScale = 1.0;
+
+            // Randomize
+            p.mesh.position.x += (Math.random() - 0.5) * 0.5;
+            p.mesh.position.y += (Math.random() - 0.5) * 0.5;
+            p.mesh.position.z += (Math.random() - 0.5) * 0.5;
             
-            // FIX: Reduced Upward Velocity
-            // Old: Math.random() * 5 + 2 (Rocket jump)
-            // New: Math.random() * 2 (Slight pop, then fall)
-            const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 3, // Spread outward
-                Math.random() * 2,         // Slight pop up, then gravity takes over
+            p.velocity.set(
+                (Math.random() - 0.5) * 3,
+                Math.random() * 2,
                 (Math.random() - 0.5) * 3
             );
-
-            this.addParticle(mesh, velocity, 1.0); 
         }
-    }
-
-    addParticle(mesh, velocity, gravityScale) {
-        this.scene.add(mesh);
-        this.particles.push({
-            mesh: mesh,
-            velocity: velocity,
-            gravityScale: gravityScale,
-            life: 3.0, 
-            onFloor: false,
-            floorTimer: 1.0 
-        });
     }
 
     update(delta) {
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const p = this.particles[i];
+        // Only update active particles
+        for (let i = 0; i < this.poolSize; i++) {
+            const p = this.particlePool[i];
+            if (!p.active) continue;
 
             if (!p.onFloor) {
                 p.velocity.y -= 9.8 * p.gravityScale * delta;
@@ -156,23 +174,22 @@ export class DebrisSystem {
                     p.mesh.position.y = 0.1; 
                     p.onFloor = true;
                     
-                    if (Math.random() > 0.7) {
+                    if (Math.random() > 0.6) {
                         this.spawnSplat(p.mesh.position);
                     }
                 }
             } else {
                 p.floorTimer -= delta;
+                
+                // Shrink effect before disappearing
                 if (p.floorTimer < 0.5) p.mesh.scale.multiplyScalar(0.9);
-                if (p.floorTimer <= 0) this.removeParticle(i);
+                
+                if (p.floorTimer <= 0) {
+                    // Disable particle (return to pool)
+                    p.active = false;
+                    p.mesh.visible = false;
+                }
             }
         }
-    }
-
-    removeParticle(index) {
-        const p = this.particles[index];
-        this.scene.remove(p.mesh);
-        if (p.mesh.geometry) p.mesh.geometry.dispose();
-        if (p.mesh.material) p.mesh.material.dispose();
-        this.particles.splice(index, 1);
     }
 }

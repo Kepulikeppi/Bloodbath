@@ -39,10 +39,12 @@ export const Config = {
     FL_INTENSITY: 160,
     FL_DISTANCE: 70,
     FL_ANGLE: Math.PI / 6,
-    
-    // FIX 3: Increased from 0.2 to 0.5.
-    // This creates a soft fade at the edge of the light circle.
     FL_PENUMBRA: 0.5,
+    
+    // Shadow Quality Settings
+    FL_SHADOW_MAP_SIZE: 2048,   // Higher res shadows (crisper)
+    FL_SHADOW_BIAS: -0.0001,    // Offsets calculation to prevent acne
+    FL_SHADOW_NORMAL_BIAS: 0.02, // Helps on angled surfaces
 
     // --- MENU ATMOSPHERE ---
     MENU_PARTICLE_COUNT: 300,

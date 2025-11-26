@@ -34,6 +34,13 @@ export class Engine {
         flashlight.distance = Config.FL_DISTANCE;
         flashlight.castShadow = true;
         
+        // --- FIX: Shadow Properties ---
+        flashlight.shadow.mapSize.width = Config.FL_SHADOW_MAP_SIZE || 1024;
+        flashlight.shadow.mapSize.height = Config.FL_SHADOW_MAP_SIZE || 1024;
+        flashlight.shadow.bias = Config.FL_SHADOW_BIAS || -0.0001;
+        flashlight.shadow.normalBias = Config.FL_SHADOW_NORMAL_BIAS || 0.02;
+        // ------------------------------
+        
         flashlight.position.set(0.2, -0.1, -0.5); 
         flashlight.target.position.set(0, 0.05, -10);
         
