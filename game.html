@@ -11,24 +11,30 @@
     </style>
 </head>
 <body>
-	<!-- MINIMAP -->
+    <!-- LOADING SCREEN (New) -->
+    <div id="loading-screen">
+        <h1 id="loading-title">LEVEL 1</h1>
+        <div id="loading-bar-container">
+            <div id="loading-bar"></div>
+        </div>
+        <p id="loading-text">INITIALIZING...</p>
+    </div>
+
+    <!-- MINIMAP -->
     <div id="minimap-container">
         <canvas id="minimap" width="230" height="230"></canvas>
         <div class="minimap-label">SECTOR RADAR</div>
-        <!-- BUTTONS REMOVED HERE -->
     </div>
-     <!-- NEW: FULL MAP OVERLAY (Hidden by default) -->
+     <!-- FULL MAP OVERLAY -->
     <div id="full-map-overlay" style="display: none;">
         <canvas id="full-map-canvas" width="800" height="600"></canvas>
         <div class="full-map-label">TACTICAL MAP OVERVIEW</div>
     </div>
 
-
-	
     <!-- CROSSHAIR -->
     <div id="crosshair"></div>
-	
-	<!-- CONTROLS OVERLAY -->
+    
+    <!-- CONTROLS OVERLAY -->
     <div id="controls-overlay">
         <div class="control-row">
             <span class="key-badge">ESC</span>
@@ -47,16 +53,13 @@
             <span class="action-text">Minimap zoom</span>
         </div>
     </div>
-	
-	    
-<!-- FPS TELEMETRY (Hidden by default) -->
+    
+    <!-- FPS TELEMETRY -->
     <div id="fps-counter" style="display: none;">
         FPS: <span id="fps-value">0</span>
     </div>
 
-  
-	
-    <!-- PAUSE MENU (Hidden by default) -->
+    <!-- PAUSE MENU -->
     <div id="pause-menu" style="display: none;">
         <h1>GAME PAUSED</h1>
         <p>MOUSE RELEASED</p>
@@ -66,14 +69,12 @@
             <button id="btn-quit">EXIT TO MAIN MENU</button>
         </div>
 
-        <!-- Music Player (Embedded in Pause Menu) -->
+        <!-- Music Player -->
         <div id="music-player">
             <canvas id="viz-canvas" width="400" height="40"></canvas>
-            
             <div class="track-info">
                 <div class="scrolling-text" id="track-name">Standby</div>
             </div>
-
             <div class="controls-row">
                 <div class="btn-group">
                     <button id="btn-stop">■</button>
@@ -86,16 +87,14 @@
             </div>
         </div>
     </div>
-	
-	<!-- LEVEL COMPLETE SCREEN -->
+    
+    <!-- LEVEL COMPLETE SCREEN -->
     <div id="level-screen" style="display: none;">
         <h1>LEVEL CLEARED</h1>
-        
         <div class="stats-box">
             <p>DEPTH REACHED: <span id="score-level">1</span></p>
             <p>TIME ELAPSED: <span id="score-time">00:00</span></p>
         </div>
-
         <button id="btn-next-level">CONTINUE</button>
     </div>
     
