@@ -1,2 +1,2 @@
 # Bloodbath
-A browser-based shooter with procedural map generation
+A browser-based shooter game with procedural map generation
