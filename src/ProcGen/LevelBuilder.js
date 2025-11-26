@@ -275,7 +275,8 @@ export class LevelBuilder {
             roughnessMap: roughMap,
             roughness: 1.0,
             metalness: 0.1,
-            color: 0xaaaaaa
+            color: 0xaaaaaa,
+            side: THREE.DoubleSide  // Render both sides of faces
         });
 
         this.materials.push(material);
