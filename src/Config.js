@@ -58,6 +58,9 @@ export const Config = {
     AUDIO_MIN_DB: -80, 
     AUDIO_MAX_DB: -20,
 
+    // 50 units is about 2 large rooms away.
+    AUDIO_MAX_DIST: 50,
+
     // --- VISUALIZER UI SETTINGS ---
     VIZ_BAR_COUNT: 32,         
     VIZ_BIN_START: 2,          
@@ -66,7 +69,7 @@ export const Config = {
     // --- AUDIO PLAYER PLAYLIST ---
     PLAYLIST: [
         './assets/Bloodbath - Main Theme.mp3', 
-        './assets/Tale of an Ancient Hero.mp3', 
+        './assets/Tale of a Folk Hero.mp3', 
         './assets/Bloodthirsty Clown.mp3',
         './assets/Welcome to Hell.mp3'
     ],
