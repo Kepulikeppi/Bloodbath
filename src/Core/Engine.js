@@ -34,12 +34,11 @@ export class Engine {
         flashlight.distance = Config.FL_DISTANCE;
         flashlight.castShadow = true;
         
-        // --- FIX: Shadow Properties ---
+        // Shadow Properties
         flashlight.shadow.mapSize.width = Config.FL_SHADOW_MAP_SIZE || 1024;
         flashlight.shadow.mapSize.height = Config.FL_SHADOW_MAP_SIZE || 1024;
         flashlight.shadow.bias = Config.FL_SHADOW_BIAS || -0.0001;
         flashlight.shadow.normalBias = Config.FL_SHADOW_NORMAL_BIAS || 0.02;
-        // ------------------------------
         
         flashlight.position.set(0.2, -0.1, -0.5); 
         flashlight.target.position.set(0, 0.05, -10);
@@ -52,6 +51,9 @@ export class Engine {
         this.fpsElement = document.getElementById('fps-value');
         this.frames = 0;
         this.lastTime = performance.now();
+        
+        // NEW: Throttling timer for pause menu
+        this.renderTimer = 0;
 
         // Loop
         this.clock = new THREE.Clock();
@@ -69,26 +71,33 @@ export class Engine {
         
         // 1. Get Logic Delta
         const delta = this.clock.getDelta();
+
+        // 2. Game Logic (Always runs, game.js handles the 'skip if paused' logic)
+        if (this.onUpdate) {
+            this.onUpdate(delta);
+        }
+
+        // 3. GPU OPTIMIZATION: Throttle rendering when paused
+        if (!this.controls.isLocked) {
+            this.renderTimer += delta;
+            // If paused, only draw every 0.1 seconds (10 FPS)
+            if (this.renderTimer < 0.1) return; 
+            this.renderTimer = 0;
+        }
+
+        // 4. Draw to Screen
+        this.renderer.render(this.scene, this.camera);
         
-        // 2. FPS Counter Logic (1 Second Update)
+        // 5. FPS Counter Logic (Moved after render so it counts actual draws)
         this.frames++;
         const time = performance.now();
         
-        // Update only once every 1000ms (1 second)
         if (time >= this.lastTime + 1000) {
             if (this.fpsElement) {
-                // frames = How many loops ran in the last second
                 this.fpsElement.innerText = this.frames;
             }
             this.frames = 0;
             this.lastTime = time;
         }
-
-        // 3. Game Logic
-        if (this.onUpdate) {
-            this.onUpdate(delta);
-        }
-
-        this.renderer.render(this.scene, this.camera);
     }
-}
+}   
