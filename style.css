@@ -28,7 +28,7 @@ body {
     
     background: rgba(0, 0, 0, 0.5); /* 50% opacity */
     border-right: 2px solid #500; /* Red divider line */
-    backdrop-filter: blur(5px); /* Optional: blurs the image behind sidebar */
+    /*backdrop-filter: blur(5px); /* Optional: blurs the image behind sidebar */
     
     display: flex; flex-direction: column; 
     justify-content: space-between; /* Pushes Menu to top, Music to bottom */
@@ -291,6 +291,8 @@ input[type=range] {
 
 /* PAUSE MENU OVERLAY */
 #pause-menu {
+    
+    
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
@@ -304,6 +306,7 @@ input[type=range] {
     z-index: 100;
     
     display: flex; flex-direction: column; gap: 20px;
+    
 }
 
 #pause-menu h1 {
@@ -625,11 +628,10 @@ input[type=range] {
     
     border: 2px solid #f00;
     
-    /* CHANGE: Lower opacity from 0.9 to 0.4 */
-    background: rgba(0, 0, 0, 0.4); 
+    /* CHANGED: Simple dark overlay instead of blur */
+    background: rgba(20, 10, 10, 0.85);  /* Dark reddish-grey, 85% opacity */
     
-    /* Optional: Adds a cool frosted glass effect */
-    backdrop-filter: blur(2px); 
+    /* REMOVED: backdrop-filter: blur(2px); */
     
     box-shadow: 0 0 50px rgba(255, 0, 0, 0.1);
     

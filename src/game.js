@@ -86,12 +86,13 @@ const engine = new Engine((delta) => {
         if (debrisSystem) debrisSystem.update(delta);
 
         // Check Maps
+        /*
         if (minimap) {
             const exitPos = exitObject ? { x: exitObject.position.x, z: exitObject.position.z } : null;
             minimap.update(engine.camera.position, exitPos);
             minimap.updateFull(engine.camera.position, exitPos);
         }
-
+        */
         // Update HUD
         if(hud) hud.update();
     }
@@ -245,6 +246,31 @@ const startPrompt = document.getElementById('start-prompt');
 
 engine.controls.addEventListener('unlock', () => {
     if (gameActive && !levelManager.isLevelFinished) {
+        // Capture screenshot of the game
+        const screenshot = engine.renderer.domElement.toDataURL();
+        console.log('Screenshot length:', screenshot.length);
+        console.log('Screenshot preview:', screenshot.substring(0, 100));
+
+
+        let img = document.getElementById('pause-background');
+        if (!img) {
+            img = document.createElement('img');
+            img.id = 'pause-background';
+            document.body.appendChild(img);
+        }
+        img.src = screenshot;
+        img.style.position = 'fixed';
+        img.style.top = '0';
+        img.style.left = '0';
+        img.style.width = '100vw';
+        img.style.height = '100vh';
+        img.style.zIndex = '2';  // Above canvas (1), below UI elements
+        img.style.pointerEvents = 'none';
+        img.style.objectFit = 'cover';
+        
+        // Hide WebGL canvas
+        engine.renderer.domElement.style.visibility = 'hidden';
+        
         pauseMenu.style.display = 'flex';
         crosshair.style.display = 'none';
         document.body.style.cursor = 'default';
@@ -253,13 +279,19 @@ engine.controls.addEventListener('unlock', () => {
 
 engine.controls.addEventListener('lock', () => {
     if (gameActive) {
+        // Remove screenshot
+        const img = document.getElementById('pause-background');
+        if (img) img.remove();
+        
+        // Show WebGL canvas
+        engine.renderer.domElement.style.visibility = 'visible';
+        
         pauseMenu.style.display = 'none';
         crosshair.style.display = 'block';
         document.body.style.cursor = 'none';
         if (startPrompt) startPrompt.style.display = 'none';
     }
 });
-
 document.getElementById('btn-resume').addEventListener('click', () => engine.controls.lock());
 document.getElementById('btn-quit').addEventListener('click', () => window.location.href = 'index.html');
 
