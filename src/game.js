@@ -232,6 +232,7 @@ document.addEventListener('keydown', (e) => {
         case 'KeyL': if(minimap) minimap.changeZoom(-5); break; 
         case 'KeyK': if(minimap) minimap.changeZoom(5); break;
         case 'KeyR': if(weapon) weapon.reload(); break;
+        case 'KeyF': engine.toggleFlashlight(); break;
         case 'KeyT': 
             const fps = document.getElementById('fps-counter');
             if(fps) fps.style.display = fps.style.display === 'none' ? 'block' : 'none';

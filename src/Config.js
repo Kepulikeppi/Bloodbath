@@ -81,7 +81,7 @@ export const Config = {
     SFX_EMPTY: './assets/sounds/pistol-empty-click.mp3',
     
     // 2. Ambience 
-    SFX_AMBIENCE: './assets/sounds/ambience.mp3', 
+    SFX_AMBIENCE: './assets/sounds/ambience2.mp3', 
     
     // 3. Enemy Interactions
     SFX_HIT: './assets/sounds/body_impact.mp3',
