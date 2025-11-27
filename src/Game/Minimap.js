@@ -15,10 +15,16 @@ export class Minimap {
         this.fullCtx = this.fullCanvas.getContext('2d');
         this.fullContainer = document.getElementById('full-map-overlay');
 
-        // 3. CACHING SETUP (The Fix)
+        // 3. CACHING SETUP
         this.staticCanvas = document.createElement('canvas');
         this.staticCtx = this.staticCanvas.getContext('2d');
         this.isCacheGenerated = false;
+        
+        // 4. THROTTLING - limit update frequency
+        this.lastMinimapUpdate = 0;
+        this.lastFullMapUpdate = 0;
+        this.minimapInterval = 50;   // 20 FPS for minimap
+        this.fullMapInterval = 100;  // 10 FPS for full map
     }
 
     updateTileSize() {
@@ -52,7 +58,6 @@ export class Minimap {
         const width = this.fullCanvas.width;
         const height = this.fullCanvas.height;
         
-        // Match buffer size to display size
         this.staticCanvas.width = width;
         this.staticCanvas.height = height;
 
@@ -64,22 +69,19 @@ export class Minimap {
         const offsetX = (width - (mapW * cellSize)) / 2;
         const offsetY = (height - (mapH * cellSize)) / 2;
 
-        // Store these for the dynamic update to use later
         this.fullMapMetrics = { cellSize, offsetX, offsetY };
 
         const ctx = this.staticCtx;
         
-        // Clear
         ctx.clearRect(0, 0, width, height);
 
-        // Heavy Loop: Run ONLY ONCE
         for (let y = 0; y < mapH; y++) {
             for (let x = 0; x < mapW; x++) {
                 if (this.map[y][x] === 1) {
-                    ctx.fillStyle = "#440000"; // Walls
+                    ctx.fillStyle = "#440000";
                     ctx.fillRect(offsetX + (x * cellSize), offsetY + (y * cellSize), cellSize + 0.5, cellSize + 0.5);
                 } else {
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // Floors
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
                     ctx.fillRect(offsetX + (x * cellSize), offsetY + (y * cellSize), cellSize + 0.5, cellSize + 0.5);
                 }
             }
@@ -89,8 +91,15 @@ export class Minimap {
         console.log("Minimap: Static cache generated.");
     }
 
-    // --- 1. SMALL RADAR UPDATE ---
+    // --- 1. SMALL RADAR UPDATE (THROTTLED) ---
     update(playerPos, exitPos) {
+        // Throttle updates
+        const now = performance.now();
+        if (now - this.lastMinimapUpdate < this.minimapInterval) {
+            return;
+        }
+        this.lastMinimapUpdate = now;
+        
         const ctx = this.ctx;
         const width = this.canvas.width;
         const height = this.canvas.height;
@@ -102,7 +111,7 @@ export class Minimap {
         const px = Math.floor(playerPos.x);
         const pz = Math.floor(playerPos.z);
 
-        // Draw Map (Small loop, only draws nearby tiles, so it's fast enough)
+        // Draw Map
         for (let y = pz - this.range; y <= pz + this.range; y++) {
             for (let x = px - this.range; x <= px + this.range; x++) {
                 const drawX = (x - px + this.range) * this.tileSize;
@@ -149,9 +158,16 @@ export class Minimap {
         }
     }
 
-    // --- 2. FULL MAP UPDATE (OPTIMIZED) ---
+    // --- 2. FULL MAP UPDATE (THROTTLED) ---
     updateFull(playerPos, exitPos) {
         if (!this.isFullMapOpen()) return;
+
+        // Throttle updates
+        const now = performance.now();
+        if (now - this.lastFullMapUpdate < this.fullMapInterval) {
+            return;
+        }
+        this.lastFullMapUpdate = now;
 
         // Generate cache on first run
         if (!this.isCacheGenerated) {
@@ -162,7 +178,6 @@ export class Minimap {
         const width = this.fullCanvas.width;
         const height = this.fullCanvas.height;
         
-        // Retrieve pre-calculated metrics
         const { cellSize, offsetX, offsetY } = this.fullMapMetrics;
 
         // 1. Clear
@@ -180,23 +195,22 @@ export class Minimap {
         ctx.arc(px + cellSize/2, py + cellSize/2, Math.max(3, cellSize), 0, Math.PI * 2);
         ctx.fill();
 
-        // 4. Draw Exit
+        // 4. Draw Exit (Static - no animation)
         if (exitPos) {
             const ex = offsetX + (exitPos.x * cellSize);
             const ey = offsetY + (exitPos.z * cellSize);
             
-            const time = Date.now() * 0.005;
-            const pulse = (Math.sin(time) * 5) + 5; 
-            
+            // Outer ring
             ctx.strokeStyle = "#00ff00";
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(ex + cellSize/2, ey + cellSize/2, Math.max(6, cellSize) + pulse, 0, Math.PI * 2);
+            ctx.arc(ex + cellSize/2, ey + cellSize/2, Math.max(8, cellSize + 5), 0, Math.PI * 2);
             ctx.stroke();
 
+            // Inner dot
             ctx.fillStyle = "#00ff00";
             ctx.beginPath();
-            ctx.arc(ex + cellSize/2, ey + cellSize/2, Math.max(3, cellSize), 0, Math.PI * 2);
+            ctx.arc(ex + cellSize/2, ey + cellSize/2, Math.max(4, cellSize), 0, Math.PI * 2);
             ctx.fill();
         }
     }

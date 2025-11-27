@@ -86,13 +86,13 @@ const engine = new Engine((delta) => {
         if (debrisSystem) debrisSystem.update(delta);
 
         // Check Maps
-        /*
+        
         if (minimap) {
             const exitPos = exitObject ? { x: exitObject.position.x, z: exitObject.position.z } : null;
             minimap.update(engine.camera.position, exitPos);
             minimap.updateFull(engine.camera.position, exitPos);
         }
-        */
+        
         // Update HUD
         if(hud) hud.update();
     }
