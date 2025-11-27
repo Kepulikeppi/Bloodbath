@@ -737,3 +737,94 @@ input[type=range] {
     transition: width 0.2s;
     box-shadow: 0 0 10px #f00;
 }
+
+/* --- HUD SYSTEM --- */
+#hud-layer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; /* Let clicks pass through */
+    z-index: 40;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #f00;
+    text-shadow: 0 0 2px #000;
+}
+
+/* TOP LEFT: RESOURCES */
+#hud-resources {
+    position: absolute;
+    top: 20px; left: 20px;
+    display: flex; flex-direction: column; gap: 5px;
+}
+.res-row {
+    background: rgba(0, 0, 0, 0.6);
+    border-left: 2px solid #f00;
+    padding: 5px 10px;
+    font-size: 0.9rem;
+}
+
+/* BOTTOM CENTER: VITALS */
+#hud-vitals {
+    position: absolute;
+    bottom: 20px; 
+    left: 50%;
+    transform: translateX(-50%); /* Center it perfectly */
+    
+    display: flex; 
+    flex-direction: row; /* Side-by-side */
+    gap: 50px; /* Space between Health and Armor */
+    
+    text-align: center;
+}
+
+.vital-row {
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid #f00;
+    padding: 10px 20px;
+    display: flex; 
+    flex-direction: column; /* Label on top, number on bottom */
+    align-items: center;
+    min-width: 120px;
+}
+
+.big-text { 
+    font-size: 2.5rem; 
+    line-height: 1.2; 
+    text-shadow: 0 0 15px #f00; 
+}
+
+/* BOTTOM RIGHT: WEAPON */
+#hud-weapon {
+    position: absolute;
+    bottom: 20px; right: 20px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+}
+
+.weapon-slots { display: flex; gap: 5px; }
+.slot {
+    width: 30px; height: 30px;
+    border: 1px solid #500;
+    background: rgba(0,0,0,0.5);
+    display: flex; justify-content: center; align-items: center;
+    color: #500;
+}
+.slot.active {
+    border-color: #f00;
+    color: #f00;
+    background: rgba(50, 0, 0, 0.8);
+    box-shadow: 0 0 10px #f00;
+}
+.slot.has-weapon { color: #fff; } /* For later use */
+
+.ammo-display {
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid #f00;
+    padding: 15px;
+    text-align: right;
+    min-width: 150px;
+}
+#val-weapon-name { display: block; font-size: 0.8rem; opacity: 0.8; margin-bottom: 5px; }
+
+/* Push the minimap down slightly so it doesn't overlap resources? 
+   Actually minimap is Top Right, Resources Top Left, so we are good. */

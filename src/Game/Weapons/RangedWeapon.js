@@ -1,5 +1,6 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Weapon } from './Weapon.js';
+import { state } from '../GameState.js'; 
 
 export class RangedWeapon extends Weapon {
     constructor(camera, config, audioManager) {
@@ -36,7 +37,16 @@ export class RangedWeapon extends Weapon {
 
     trigger() {
         if (this.isActing) return false;
+        
+        if (state.data.ammo['9mm'] <= 0) {
+            // Click sound for empty gun
+            // if (this.audioManager) this.audioManager.playSFX('click'); 
+            console.log("Click! No ammo.");
+            return false; 
+        }
 
+        // 2. Deduct Ammo
+        state.data.ammo['9mm']--;
         this.isActing = true;
         this.recoilTimer = 1.0; 
 

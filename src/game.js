@@ -8,10 +8,11 @@ import { AudioManager } from './Core/AudioManager.js';
 import { Minimap } from './Game/Minimap.js';
 import { WeaponConfig } from './WeaponConfig.js';
 import { DebrisSystem } from './Game/DebrisSystem.js';
-// NEW IMPORTS
 import { LoadingScreen } from './UI/LoadingScreen.js';
 import { LevelManager } from './Game/LevelManager.js';
 import { Spawner } from './Game/Spawner.js';
+import { GameState, state } from './Game/GameState.js';
+import { HUD } from './UI/HUD.js';
 
 console.log("1. Game Script Loaded");
 
@@ -35,6 +36,9 @@ loadingUI.setTitle(currentLevel);
 const audioManager = new AudioManager();
 audioManager.setPlaylist(Config.PLAYLIST);
 audioManager.setVolume(savedVolume);
+
+state.load();
+const hud = new HUD();
 
 let player = null;
 let weapon = null;
@@ -69,6 +73,13 @@ const engine = new Engine((delta) => {
             minimap.update(engine.camera.position, exitPos);
             minimap.updateFull(engine.camera.position, exitPos);
         }
+
+        if (weapon) {
+            // weapon update
+        }
+
+        // Refresh HUD (Can be optimized to only run on changes)
+        if(hud) hud.update();
     }
 });
 

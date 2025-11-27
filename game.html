@@ -54,6 +54,42 @@
         </div>
     </div>
     
+    <!-- HUD LAYER -->
+    <div id="hud-layer">
+        
+        <!-- TOP LEFT: Resources & XP -->
+        <div id="hud-resources">
+            <div class="res-row">XP: <span id="val-xp">0</span></div>
+            <div class="res-row">SCRAP: <span id="val-metal">0</span> | ELEC: <span id="val-elec">0</span> | CHIP: <span id="val-chip">0</span></div>
+            <div class="res-row" style="color: #ff00aa;">RAGE PILLS: <span id="val-pills">0</span></div>
+        </div>
+
+        <!-- BOTTOM LEFT: Vitals -->
+        <div id="hud-vitals">
+            <div class="vital-row">HEALTH <span id="val-hp" class="big-text">100</span></div>
+            <div class="vital-row">ARMOR <span id="val-armor">0%</span></div>
+        </div>
+
+        <!-- BOTTOM RIGHT: Weapon & Ammo -->
+        <div id="hud-weapon">
+            <!-- Weapon Slots 1-6 -->
+            <div class="weapon-slots">
+                <div class="slot" id="slot-1">1</div>
+                <div class="slot active" id="slot-2">2</div>
+                <div class="slot" id="slot-3">3</div>
+                <div class="slot" id="slot-4">4</div>
+                <div class="slot" id="slot-5">5</div>
+                <div class="slot" id="slot-6">6</div>
+            </div>
+            
+            <div class="ammo-display">
+                <span id="val-weapon-name">9MM PISTOL</span>
+                <span id="val-ammo" class="big-text">50</span>
+            </div>
+        </div>
+
+    </div>
+
     <!-- FPS TELEMETRY -->
     <div id="fps-counter" style="display: none;">
         FPS: <span id="fps-value">0</span>

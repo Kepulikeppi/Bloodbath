@@ -1,6 +1,7 @@
 import { AudioManager } from './Core/AudioManager.js';
 import { Config } from './Config.js';
 import { MusicPlayerUI } from './UI/MusicPlayerUI.js'; // New Import
+import { state } from './Game/GameState.js';
 
 console.log("[Menu] Script Loading...");
 
@@ -62,6 +63,10 @@ if (sessionStorage.getItem('bloodbath_gamestarted') === 'true') {
 const startBtn = document.getElementById('start-btn');
 if (startBtn) {
     startBtn.addEventListener('click', () => {
+        // RESET STATE FOR NEW RUN
+        state.reset();
+        state.save();
+        
         // Save State
         if (audioManager.isPlaying) sessionStorage.setItem('bloodbath_music_active', 'true');
         else sessionStorage.setItem('bloodbath_music_active', 'false');
