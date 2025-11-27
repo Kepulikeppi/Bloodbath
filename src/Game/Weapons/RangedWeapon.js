@@ -26,15 +26,27 @@ export class RangedWeapon extends Weapon {
 
         const weaponId = this.config.id;
         const wState = state.getWeaponState(weaponId);
+        
+        // Get current reserve ammo for this weapon type
+        const ammoType = this.config.ammoType; // e.g., "9mm"
+        const reserveCount = state.data.ammo[ammoType];
 
         // --- AMMO CHECK ---
         if (wState.magCurrent <= 0) {
-            console.log("Click! Dry fire.");
-            this.reload(); // Auto-reload on dry fire
-            return false; 
+            // Case A: Empty Mag, but we have ammo in pockets -> RELOAD
+            if (reserveCount > 0) {
+                this.reload();
+            } 
+            // Case B: Totally empty -> CLICK SOUND
+            else {
+                if (this.audioManager) {
+                    this.audioManager.playSFX('empty');
+                }
+            }
+            return false; // Cannot shoot
         }
 
-        // Deduct from Mag (Not reserve)
+        // Deduct from Mag
         state.consumeAmmo(weaponId);
         // ------------------
 

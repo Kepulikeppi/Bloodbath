@@ -75,6 +75,7 @@ export const Config = {
     // 1. Pistol
     SFX_PISTOL: './assets/sounds/pistol.mp3',
     SFX_RELOAD: './assets/sounds/pistol-reload.mp3',
+    SFX_EMPTY: './assets/sounds/pistol-empty-click.mp3',
     
     // 2. Ambience 
     SFX_AMBIENCE: './assets/sounds/ambience.mp3', 
