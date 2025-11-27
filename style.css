@@ -745,7 +745,7 @@ input[type=range] {
     position: absolute;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    pointer-events: none; /* Let clicks pass through */
+    pointer-events: none;
     z-index: 40;
     font-family: 'Courier New', monospace;
     font-weight: bold;
@@ -756,77 +756,87 @@ input[type=range] {
 /* TOP LEFT: RESOURCES */
 #hud-resources {
     position: absolute;
-    top: 20px; left: 20px;
-    display: flex; flex-direction: column; gap: 5px;
+    top: 1.5vw; left: 1.5vw;
+    display: flex; flex-direction: column; gap: 0.4vw;
 }
 .res-row {
     background: rgba(0, 0, 0, 0.6);
-    border-left: 2px solid #f00;
-    padding: 5px 10px;
-    font-size: 0.9rem;
+    border-left: 0.2vw solid #f00;
+    padding: 0.4vw 0.8vw;
+    font-size: 1vw;
 }
 
 /* BOTTOM CENTER: VITALS */
 #hud-vitals {
     position: absolute;
-    bottom: 20px; 
+    bottom: 1.5vw; 
     left: 50%;
-    transform: translateX(-50%); /* Center it perfectly */
-    
+    transform: translateX(-50%);
     display: flex; 
-    flex-direction: row; /* Side-by-side */
-    gap: 50px; /* Space between Health and Armor */
-    
+    flex-direction: row;
+    gap: 3vw;
     text-align: center;
 }
 
 .vital-row {
     background: rgba(0, 0, 0, 0.8);
-    border: 1px solid #f00;
-    padding: 10px 20px;
+    border: 0.1vw solid #f00;
+    padding: 0.8vw 1.5vw;
     display: flex; 
-    flex-direction: column; /* Label on top, number on bottom */
+    flex-direction: column;
     align-items: center;
-    min-width: 120px;
+    min-width: 8vw;
+    font-size: 1vw;
 }
 
 .big-text { 
-    font-size: 2.5rem; 
+    font-size: 2.5vw; 
     line-height: 1.2; 
-    text-shadow: 0 0 15px #f00; 
+    text-shadow: 0 0 1vw #f00; 
 }
 
 /* BOTTOM RIGHT: WEAPON */
 #hud-weapon {
     position: absolute;
-    bottom: 20px; right: 20px;
-    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+    bottom: 1.5vw; right: 1.5vw;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.8vw;
 }
 
-.weapon-slots { display: flex; gap: 5px; }
+.weapon-slots { display: flex; gap: 0.4vw; }
 .slot {
-    width: 30px; height: 30px;
-    border: 1px solid #500;
+    width: 2.5vw; height: 2.5vw;
+    min-width: 30px; min-height: 30px;
+    border: 0.15vw solid #333;
     background: rgba(0,0,0,0.5);
     display: flex; justify-content: center; align-items: center;
-    color: #500;
+    color: #333;
+    font-size: 1.2vw;
 }
 .slot.active {
     border-color: #f00;
     color: #f00;
     background: rgba(50, 0, 0, 0.8);
-    box-shadow: 0 0 10px #f00;
+    box-shadow: 0 0 1vw #f00;
 }
-.slot.has-weapon { color: #fff; } /* For later use */
+.slot.has-weapon { 
+    border-color: #500;
+    color: #f00; 
+}
 
 .ammo-display {
     background: rgba(0, 0, 0, 0.8);
-    border: 1px solid #f00;
-    padding: 15px;
+    border: 0.15vw solid #f00;
+    padding: 1vw 1.5vw;
     text-align: right;
-    min-width: 150px;
+    min-width: 10vw;
 }
-#val-weapon-name { display: block; font-size: 0.8rem; opacity: 0.8; margin-bottom: 5px; }
+#val-weapon-name { 
+    display: block; 
+    font-size: 1vw; 
+    opacity: 0.8; 
+    margin-bottom: 0.4vw; 
+}
+#val-ammo.big-text {
+    font-size: 2.2vw;
+}
 
-/* Push the minimap down slightly so it doesn't overlap resources? 
-   Actually minimap is Top Right, Resources Top Left, so we are good. */
