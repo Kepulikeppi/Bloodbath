@@ -2,7 +2,6 @@ import { state } from '../Game/GameState.js';
 
 export class HUD {
     constructor() {
-        // Cache DOM elements
         this.elHP = document.getElementById('val-hp');
         this.elArmor = document.getElementById('val-armor');
         this.elXP = document.getElementById('val-xp');
@@ -14,18 +13,16 @@ export class HUD {
         this.elAmmo = document.getElementById('val-ammo');
         this.elWpnName = document.getElementById('val-weapon-name');
         
-        // Update immediately
         this.update();
     }
 
     update() {
+        // 'd' is the raw data object inside the class
         const d = state.data;
 
-        // Vitals
         if(this.elHP) this.elHP.innerText = Math.ceil(d.hp);
         if(this.elArmor) this.elArmor.innerText = (d.armor * 100) + "%";
 
-        // Resources
         if(this.elXP) this.elXP.innerText = d.xp;
         if(this.elMetal) this.elMetal.innerText = d.materials.metal;
         if(this.elElec) this.elElec.innerText = d.materials.electronics;
@@ -33,21 +30,31 @@ export class HUD {
         if(this.elPills) this.elPills.innerText = d.consumables.ragePills;
 
         // Weapon Info
-        // (In the future, we check d.currentWeaponSlot to get the actual name/ammo type)
         if(this.elWpnName) this.elWpnName.innerText = "9MM PISTOL";
-        if(this.elAmmo) this.elAmmo.innerText = d.ammo['9mm'];
+        
+        if(this.elAmmo) {
+            // Get Pistol State
+            const wState = state.getWeaponState('PISTOL_9MM');
+            const reserve = d.ammo['9mm'];
+            this.elAmmo.innerText = `${wState.magCurrent} / ${reserve}`;
+        }
 
         // Slots styling
         for(let i=1; i<=6; i++) {
             const slotEl = document.getElementById(`slot-${i}`);
             if(slotEl) {
-                // Highlight active
-                if(i === d.currentWeaponSlot) slotEl.classList.add('active');
+                // Active Highlight
+                if(i === d.currentSlot) slotEl.classList.add('active'); // Changed currentWeaponSlot to currentSlot
                 else slotEl.classList.remove('active');
                 
-                // Dim if not owned (Visual polish for later)
-                if(state.hasWeapon(i)) slotEl.style.opacity = 1;
-                else slotEl.style.opacity = 0.3;
+                // Dim if not owned (Check the Class Method, not data)
+                if(state.hasWeapon(i)) {
+                    slotEl.style.opacity = 1;
+                    slotEl.style.color = "#fff";
+                } else {
+                    slotEl.style.opacity = 0.3;
+                    slotEl.style.color = "#500";
+                }
             }
         }
     }

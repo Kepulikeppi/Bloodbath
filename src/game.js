@@ -191,6 +191,7 @@ document.addEventListener('keydown', (e) => {
             const fps = document.getElementById('fps-counter');
             if(fps) fps.style.display = fps.style.display === 'none' ? 'block' : 'none';
             break;
+        case 'KeyR': if(weapon) weapon.reload(); break;    
     }
 });
 

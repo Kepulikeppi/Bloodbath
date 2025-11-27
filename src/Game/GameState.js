@@ -1,98 +1,142 @@
 import { Config } from '../Config.js';
+import { WeaponConfig } from '../WeaponConfig.js';
 
 export class GameState {
     constructor() {
-        // 1. DEFAULT STATE (New Run)
+        // DEFAULT DATA
         this.data = {
-            // --- VISIBLE STATS ---
             hp: 100,
             maxHp: 100,
-            armor: 0.0, // 0.0 to 0.9 (Percentage damage reduction)
+            armor: 0.0,
             xp: 0,
             
-            // Inventory
+            // Reserves (Bullets in your pocket)
             ammo: {
                 '9mm': 50,
-                '127mm': 0,
+                '44mag': 0,
                 'shells': 0,
                 'grenades': 0,
                 'battery': 0
             },
-            materials: {
-                metal: 0,
-                electronics: 0,
-                microchips: 0
-            },
-            consumables: {
-                ragePills: 0
-            },
+            materials: { metal: 0, electronics: 0, microchips: 0 },
+            consumables: { ragePills: 0 },
 
-            // Weapons (Unlocked IDs)
-            unlockedWeapons: ['MELEE_KNIFE', 'PISTOL_9MM'], 
-            currentWeaponSlot: 2, // Default to Pistol
+            // Weapons Inventory
+            // We store IDs of weapons the player has unlocked
+            unlockedWeapons: ['PISTOL_9MM'], 
+            
+            // Currently selected slot (1=Melee, 2=Pistol, etc.)
+            currentSlot: 2, 
 
-            // --- HIDDEN ATTRIBUTES (Tech Tree Upgrades) ---
-            attributes: {
-                speedMult: 1.0,
-                sprintMult: 1.0,
-                staminaMax: 100,
-                reloadSpeedMult: 1.0,
-                meleeDamageMult: 1.0,
-                hackSkill: 0
-            }
+            // Detailed Weapon State (Upgrades & Current Mag)
+            weaponData: {
+                'PISTOL_9MM': {
+                    magCurrent: 17,
+                    magSizeMod: 0, // 0 = normal, 1 = stick, 2 = drum
+                    isAuto: false
+                }
+            },
+            
+            attributes: { speedMult: 1.0, sprintMult: 1.0, staminaMax: 100 }
         };
 
-        // 2. LOAD FROM STORAGE (If exists)
         this.load();
     }
-
-    save() {
-        sessionStorage.setItem('bloodbath_gamestate', JSON.stringify(this.data));
-    }
-
+    
+    save() { sessionStorage.setItem('bloodbath_gamestate', JSON.stringify(this.data)); }
+    
     load() {
         const saved = sessionStorage.getItem('bloodbath_gamestate');
         if (saved) {
-            // Merge saved data with defaults (handles version updates safely)
-            this.data = { ...this.data, ...JSON.parse(saved) };
+            const parsed = JSON.parse(saved);
+            this.data = { ...this.data, ...parsed };
+            
+            // Safety checks for backward compatibility
+            if(!this.data.weaponData) this.data.weaponData = {
+                'PISTOL_9MM': { magCurrent: 17, magSizeMod: 0, isAuto: false }
+            };
+            if(!this.data.unlockedWeapons) this.data.unlockedWeapons = ['PISTOL_9MM'];
         }
     }
 
-    reset() {
-        sessionStorage.removeItem('bloodbath_gamestate');
-        // We rely on page reload to re-init defaults, or manual reset could go here
-    }
-
-    // --- HELPER METHODS ---
+    reset() { sessionStorage.removeItem('bloodbath_gamestate'); }
     
-    addXP(amount) {
-        this.data.xp += amount;
-        this.save();
-    }
-
+    addXP(amount) { this.data.xp += amount; this.save(); }
+    
     modifyHP(amount) {
         this.data.hp += amount;
         if (this.data.hp > this.data.maxHp) this.data.hp = this.data.maxHp;
         if (this.data.hp < 0) this.data.hp = 0;
         this.save();
-        return this.data.hp <= 0; // Returns true if dead
+        return this.data.hp <= 0;
     }
 
-    addAmmo(type, amount) {
-        if (this.data.ammo[type] !== undefined) {
-            this.data.ammo[type] += amount;
-            this.save();
-        }
-    }
+    // --- WEAPON HELPERS ---
 
+    // FIX: Added the missing function called by HUD.js
     hasWeapon(slotIndex) {
-        // Mapping slots 1-6 to generic types check
-        // For now, we just return true if slot 2 (Pistol) or 1 (Melee)
+        // Mapping: 1=Melee, 2=Pistol, etc.
+        // In the future, you can make this dynamic based on a 'Loadout' array.
+        
         if (slotIndex === 1) return this.data.unlockedWeapons.includes('MELEE_KNIFE');
         if (slotIndex === 2) return this.data.unlockedWeapons.includes('PISTOL_9MM');
-        return false; // Others not implemented yet
+        
+        return false; 
+    }
+
+    getWeaponState(weaponId) {
+        if (!this.data.weaponData[weaponId]) {
+            // Initialize if missing
+            this.data.weaponData[weaponId] = { magCurrent: 0, magSizeMod: 0 };
+        }
+        return this.data.weaponData[weaponId];
+    }
+
+    // Calculate max mag size based on upgrades
+    getMaxMag(weaponId) {
+        const state = this.getWeaponState(weaponId);
+        // Safety check if config exists
+        const base = WeaponConfig[weaponId] ? WeaponConfig[weaponId].baseMagSize : 0;
+        
+        if (weaponId === 'PISTOL_9MM') {
+            if (state.magSizeMod === 1) return 33; // Stick
+            if (state.magSizeMod === 2) return 100; // Drum
+        }
+        return base;
+    }
+
+    consumeAmmo(weaponId) {
+        const wState = this.getWeaponState(weaponId);
+        if (wState.magCurrent > 0) {
+            wState.magCurrent--;
+            this.save();
+            return true;
+        }
+        return false;
+    }
+
+    reloadWeapon(weaponId) {
+        const wConfig = WeaponConfig[weaponId];
+        if (!wConfig) return false;
+
+        const wState = this.getWeaponState(weaponId);
+        const maxMag = this.getMaxMag(weaponId);
+        
+        const needed = maxMag - wState.magCurrent;
+        if (needed <= 0) return false; // Full
+
+        const reserve = this.data.ammo[wConfig.ammoType];
+        if (reserve <= 0) return false; // No ammo
+
+        // Take what we need, or whatever is left
+        const amountToLoad = Math.min(needed, reserve);
+        
+        this.data.ammo[wConfig.ammoType] -= amountToLoad;
+        wState.magCurrent += amountToLoad;
+        
+        this.save();
+        return true;
     }
 }
 
-// Export a SINGLE instance (Singleton)
 export const state = new GameState();

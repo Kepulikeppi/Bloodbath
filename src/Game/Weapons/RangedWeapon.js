@@ -5,86 +5,107 @@ import { state } from '../GameState.js';
 export class RangedWeapon extends Weapon {
     constructor(camera, config, audioManager) {
         super(camera, config); 
-        
-        // Store the audio manager so we can use it later
         this.audioManager = audioManager;
-        this.recoilTimer = 0;
         
-        // --- BUILD PROCEDURAL GUN ---
-        const bodyMat = new THREE.MeshStandardMaterial({ 
-            color: config.bodyColor, roughness: 0.5, metalness: 0.6 
-        });
-        const slideMat = new THREE.MeshStandardMaterial({ 
-            color: config.slideColor, roughness: 0.2, metalness: 0.8 
-        });
-
-        // Grip
+        this.recoilTimer = 0;
+        this.isReloading = false;
+        
+        // Visuals (Keep existing code)
+        const bodyMat = new THREE.MeshStandardMaterial({ color: config.bodyColor, roughness: 0.5, metalness: 0.6 });
+        const slideMat = new THREE.MeshStandardMaterial({ color: config.slideColor, roughness: 0.2, metalness: 0.8 });
         const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.1), bodyMat);
-        grip.rotation.x = -0.2;
-        grip.position.set(0, -0.05, 0.05);
-        this.mesh.add(grip);
-
-        // Slide
+        grip.rotation.x = -0.2; grip.position.set(0, -0.05, 0.05); this.mesh.add(grip);
         this.slide = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 0.4), slideMat);
-        this.slide.position.set(0, 0.08, -0.1);
-        this.mesh.add(this.slide);
-
-        // Flash
+        this.slide.position.set(0, 0.08, -0.1); this.mesh.add(this.slide);
         this.flashLight = new THREE.PointLight(config.flashColor, 0, 5);
-        this.flashLight.position.set(0, 0.1, -0.6);
-        this.mesh.add(this.flashLight);
+        this.flashLight.position.set(0, 0.1, -0.6); this.mesh.add(this.flashLight);
     }
 
     trigger() {
-        if (this.isActing) return false;
-        
-        if (state.data.ammo['9mm'] <= 0) {
-            // Click sound for empty gun
-            // if (this.audioManager) this.audioManager.playSFX('click'); 
-            console.log("Click! No ammo.");
+        if (this.isActing || this.isReloading) return false;
+
+        const weaponId = this.config.id;
+        const wState = state.getWeaponState(weaponId);
+
+        // --- AMMO CHECK ---
+        if (wState.magCurrent <= 0) {
+            console.log("Click! Dry fire.");
+            this.reload(); // Auto-reload on dry fire
             return false; 
         }
 
-        // 2. Deduct Ammo
-        state.data.ammo['9mm']--;
+        // Deduct from Mag (Not reserve)
+        state.consumeAmmo(weaponId);
+        // ------------------
+
         this.isActing = true;
         this.recoilTimer = 1.0; 
 
-        // Visuals
         this.flashLight.intensity = 20;
         setTimeout(() => { this.flashLight.intensity = 0; }, 50);
 
         this.slide.position.z += 0.1; 
         setTimeout(() => { this.slide.position.z -= 0.1; }, 80);
 
-        // --- SOUND TRIGGER ---
-        if (this.audioManager) {
-            // Debug Log: Check if this prints in your console when you click
-            // console.log("Weapon: Bang!"); 
-            this.audioManager.playSFX('pistol');
-        } else {
-            console.warn("Weapon: No Audio Manager connected!");
-        }
+        if (this.audioManager) this.audioManager.playSFX('pistol');
 
-        // Cooldown
         setTimeout(() => { this.isActing = false; }, this.config.fireRate * 1000);
         
         return true; 
     }
 
+    reload() {
+        if (this.isReloading || this.isActing) return;
+        
+        // Check if reload is possible (logic in GameState)
+        // We check reserves manually here to decide if we play animation
+        const wConfig = this.config;
+        const maxMag = state.getMaxMag(wConfig.id);
+        const current = state.getWeaponState(wConfig.id).magCurrent;
+        const reserve = state.data.ammo[wConfig.ammoType];
+
+        if (current >= maxMag || reserve <= 0) return;
+
+        // START RELOAD
+        this.isReloading = true;
+        console.log("Reloading...");
+        if (this.audioManager) this.audioManager.playSFX('reload'); // Ensure 'reload.mp3' exists
+
+        // Animation: Lower Gun
+        // We tween rotation X to look down
+        const startRot = this.baseRot.x;
+        this.mesh.rotation.x = startRot + 1.0; // Tilt up/back like checking mag
+
+        setTimeout(() => {
+            // ACTUAL RELOAD (Data change)
+            state.reloadWeapon(wConfig.id);
+            
+            // Animation: Return
+            this.mesh.rotation.x = startRot;
+            this.isReloading = false;
+            
+        }, wConfig.reloadTime * 1000);
+    }
+
     update(delta, isMoving, time) {
-        super.update(delta, isMoving, time);
-
-        // Recoil Physics
-        if (this.recoilTimer > 0) {
-            this.recoilTimer -= delta * this.config.recoilSnap;
-            if (this.recoilTimer < 0) this.recoilTimer = 0;
+        // If reloading, don't do normal recoil updates, 
+        // or implement a separate animation lerp here.
+        // For now, we snap via setTimeout, but we must ensure update doesn't override it.
+        if (!this.isReloading) {
+            super.update(delta, isMoving, time);
+            
+            if (this.recoilTimer > 0) {
+                this.recoilTimer -= delta * this.config.recoilSnap;
+                if (this.recoilTimer < 0) this.recoilTimer = 0;
+            }
+            const kickZ = this.recoilTimer * this.config.recoilKick;
+            const kickRot = this.recoilTimer * this.config.recoilRise;
+            this.mesh.position.z = this.basePos.z + kickZ;
+            this.mesh.rotation.x = this.baseRot.x + kickRot;
+        } else {
+             // Simple Reload Animation (Bobbing while reloading)
+             this.mesh.rotation.x = this.baseRot.x + 0.5 + Math.sin(time * 10) * 0.1;
+             this.mesh.position.y = this.basePos.y - 0.2; // Lowered
         }
-
-        const kickZ = this.recoilTimer * this.config.recoilKick;
-        const kickRot = this.recoilTimer * this.config.recoilRise;
-
-        this.mesh.position.z = this.basePos.z + kickZ;
-        this.mesh.rotation.x = this.baseRot.x + kickRot;
     }
 }

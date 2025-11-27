@@ -7,22 +7,23 @@ export const WeaponConfig = {
 
     // Specific Weapon Definitions
     PISTOL_9MM: {
+        id: 'PISTOL_9MM', // Unique ID for save data
         name: "9mm Pistol",
         type: "RANGED",
+        ammoType: "9mm",  // Links to GameState ammo reserve
+        baseMagSize: 17,  // Default capacity
+        reloadTime: 2.0,  // Seconds
         damage: 15,
-        fireRate: 0.15, // Seconds between shots
+        fireRate: 0.15, 
         
-        // Recoil Physics
-        recoilKick: 0.1,  // Backward z-movement
-        recoilRise: 0.2,  // Upward rotation
-        recoilSnap: 8.0,  // How fast it snaps back
+        recoilKick: 0.1,  
+        recoilRise: 0.1, 
+        recoilSnap: 8.0, 
         
-        // Visuals (Procedural Generation colors)
-        bodyColor: 0x222222,
-        slideColor: 0x333333,
+        bodyColor: 0x111111,
+        slideColor: 0x1a1a1a,
         flashColor: 0xffaa00,
-		
-		position: { x: 0.35, y: -0.3, z: -0.2 }
+        position: { x: 0.35, y: -0.3, z: -0.2 }
     }
     
 
