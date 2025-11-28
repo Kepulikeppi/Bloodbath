@@ -56,15 +56,25 @@ export class MusicPlayerUI {
         }
     }
 
-    startVisualizer() {
-        const draw = () => {
+startVisualizer() {
+        let lastTime = 0;
+        // Optimization: Limit visualizer to 60 FPS.
+        const FPS = 60; 
+        const interval = 1000 / FPS;
+
+        const draw = (timestamp) => {
             requestAnimationFrame(draw);
             
-            // Safety check for Pause Menu in game (optional, but good for perf)
+            // 1. Throttle: Skip frame if too fast
+            const elapsed = timestamp - lastTime;
+            if (elapsed < interval) return;
+            lastTime = timestamp - (elapsed % interval);
+
+            // 2. Safety check for Pause Menu in game
             const pauseMenu = document.getElementById('pause-menu');
             const isMenuHidden = pauseMenu && pauseMenu.style.display === 'none';
-            // Note: In main menu, pauseMenu doesn't exist, so we draw always. 
-            // In game, we only draw if pause menu is open.
+            // In game: if menu is closed (hidden), don't draw.
+            // In main menu: pauseMenu is null, so we keep drawing.
             if (pauseMenu && isMenuHidden) return; 
 
             if (!this.ctx) return;
@@ -72,7 +82,9 @@ export class MusicPlayerUI {
             const width = this.canvas.width; 
             const height = this.canvas.height;
 
-            // Clear
+            // 3. Optimization: If music is stopped, just clear once and wait
+            // We check if it's already cleared to avoid redundant GPU calls, 
+            // but a 20fps clear is negligible.
             this.ctx.fillStyle = '#000000'; 
             this.ctx.fillRect(0, 0, width, height);
 
@@ -87,10 +99,15 @@ export class MusicPlayerUI {
                 const index = Config.VIZ_BIN_START + (i * Config.VIZ_BIN_STEP);
                 const value = data[index] || 0; 
                 const percent = value / 255.0;
+                
+                // Add a small threshold so we don't draw 1px bars for silence
+                if (percent < 0.02) continue;
+
                 const barHeight = (percent * percent) * height; 
                 this.ctx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
             }
         };
-        draw();
+        // Start the loop passing the initial timestamp
+        requestAnimationFrame(draw);
     }
 }
