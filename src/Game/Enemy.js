@@ -1,92 +1,65 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { EnemyConfig } from '../EnemyConfig.js';
+import { state } from './GameState.js';
 
 export class Enemy {
-    constructor(scene, x, z, type = 'FLOATING_DIAMOND') {
+    constructor(scene, x, z, audioManager, type) {
         this.scene = scene;
-        this.isDead = false;
-        
-        // Load stats
+        this.audioManager = audioManager;
+        this.type = type;
+
+        // 1. LOAD STATS
         this.stats = EnemyConfig[type];
+        if (!this.stats) console.error(`Missing Config for Enemy Type: ${type}`);
+        
         this.hp = this.stats.hp;
         this.speed = this.stats.speed;
         this.radius = this.stats.radius;
 
-        // 1. CREATE A CONTAINER GROUP
-        // Instead of one mesh, we move this invisible box, and all body parts follow.
+        // 2. STATE
+        this.isDead = false;
+        this.isAggro = false;
+        this.attackTimer = 0;
+        this.flashTimer = 0;
+
+        // 3. CONTAINER
         this.mesh = new THREE.Group();
-        this.mesh.position.set(x + 0.5, 0, z + 0.5); 
-        
-        // --- BUILD THE BODY ---
-        
-        // Materials
-        const fleshMat = new THREE.MeshStandardMaterial({
-            color: 0x880000, // Dark Red Flesh
-            roughness: 0.7,
-            metalness: 0.1,
-        });
-        
-        const boneMat = new THREE.MeshStandardMaterial({
-            color: 0xdddddd, // Dirty White
-            roughness: 0.9,
-        });
-
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 }); // Glowing Yellow
-
-        // A. Torso (Tall Block)
-        // Size: 0.6 wide, 1.0 tall, 0.3 thick
-        const torsoGeo = new THREE.BoxGeometry(0.6, 1.0, 0.3);
-        this.torso = new THREE.Mesh(torsoGeo, fleshMat);
-        this.torso.position.y = 1.0; // Center of torso is at 1.0m height
-        this.torso.castShadow = true;
-        this.mesh.add(this.torso);
-
-        // B. Head (Small Cube)
-        const headGeo = new THREE.BoxGeometry(0.3, 0.35, 0.35);
-        this.head = new THREE.Mesh(headGeo, boneMat);
-        this.head.position.y = 1.7; // Sit on top of torso
-        this.head.castShadow = true;
-        this.mesh.add(this.head);
-
-        // C. The "Eye" (Glowing Slit)
-        const eyeGeo = new THREE.PlaneGeometry(0.2, 0.05);
-        this.eye = new THREE.Mesh(eyeGeo, eyeMat);
-        this.eye.position.set(0, 1.7, 0.18); // Slightly in front of face
-        this.mesh.add(this.eye);
-
-        // CRITICAL: Link EVERY part back to this class
-        // If we shoot the head OR the body, it should register as a hit.
-        this.mesh.userData = { parent: this }; // Link the group
-        this.torso.userData = { parent: this };
-        this.head.userData = { parent: this };
-        this.eye.userData = { parent: this };
+        this.mesh.position.set(x + 0.5, 0, z + 0.5);
+        this.mesh.userData = { parent: this }; 
 
         this.scene.add(this.mesh);
-        
-        // Animation Data
-        this.floatOffset = Math.random() * 100;
-        this.flashTimer = 0;
     }
 
     takeDamage(amount) {
         if (this.isDead) return false;
 
+        this.isAggro = true; 
         this.hp -= amount;
-        
-        // Flash White (Apply to all children)
-        this.mesh.children.forEach(part => {
-            if(part.material && part.material.emissive) {
-                part.material.emissive.setHex(0xffffff);
-                part.material.emissiveIntensity = 1.0;
-            }
-        });
+
         this.flashTimer = 0.1;
+        this.applyFlash(true);
 
         if (this.hp <= 0) {
             this.die();
-            return true; 
+            return true;
         }
-        return false; 
+        return false;
+    }
+
+    applyFlash(isWhite) {
+        this.mesh.traverse((child) => {
+            if (child.isMesh && child.material && child.material.emissive) {
+                if (child.userData.ignoreFlash) return;
+
+                if (isWhite) {
+                    child.material.emissive.setHex(0xffffff);
+                    child.material.emissiveIntensity = 1.0;
+                } else {
+                    child.material.emissive.setHex(0x000000);
+                    child.material.emissiveIntensity = 0;
+                }
+            }
+        });
     }
 
     die() {
@@ -94,53 +67,114 @@ export class Enemy {
         this.dispose();
     }
 
-    update(delta, playerPos, mapData) {
+    dispose() {
+        this.scene.remove(this.mesh);
+        this.mesh.traverse((child) => {
+            if (child.isMesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            }
+        });
+    }
+
+    // --- UPDATED UPDATE LOOP ---
+    // We now accept 'allEnemies' to check for collisions with friends
+    update(delta, playerPos, mapData, allEnemies = []) {
         if (this.isDead) return;
 
-        // 1. Flash Effect Logic
+        // 1. Flash Reset
         if (this.flashTimer > 0) {
             this.flashTimer -= delta;
-            if (this.flashTimer <= 0) {
-                // Reset colors
-                this.mesh.children.forEach(part => {
-                    if(part.material && part.material.emissive) {
-                        part.material.emissive.setHex(0x000000);
-                        part.material.emissiveIntensity = 0;
-                    }
-                });
+            if (this.flashTimer <= 0) this.applyFlash(false);
+        }
+
+        // 2. Cooldowns
+        if (this.attackTimer > 0) this.attackTimer -= delta;
+
+        // 3. DISTANCE CHECK (2D ONLY)
+        // We ignore Y axis so looking up/down doesn't break logic
+        const dx = playerPos.x - this.mesh.position.x;
+        const dz = playerPos.z - this.mesh.position.z;
+        const dist2D = Math.sqrt(dx*dx + dz*dz);
+        
+        if (dist2D < this.stats.aggroRange || this.isAggro) {
+            if (!this.isAggro) this.isAggro = true; 
+
+            this.behavior(delta, playerPos, dist2D, mapData, allEnemies);
+        }
+    }
+
+    behavior(delta, playerPos, dist2D, mapData, allEnemies) {
+        // A. Look at player (We can look in 3D, that's fine for visuals)
+        this.mesh.lookAt(playerPos.x, this.mesh.position.y, playerPos.z);
+
+        // B. Move (Use 2D distance)
+        if (dist2D > this.stats.stopDist) {
+            const dir = new THREE.Vector3(
+                playerPos.x - this.mesh.position.x,
+                0, // Ignore Y diff for movement vector
+                playerPos.z - this.mesh.position.z
+            ).normalize();
+            
+            // --- SEPARATION LOGIC (Don't stack on other enemies) ---
+            const separation = this.calculateSeparation(allEnemies);
+            dir.add(separation).normalize(); 
+            // -------------------------------------------------------
+
+            const moveX = dir.x * this.speed * delta;
+            const moveZ = dir.z * this.speed * delta;
+
+            if (!this.checkCollision(this.mesh.position.x + moveX, this.mesh.position.z, mapData)) {
+                this.mesh.position.x += moveX;
+            }
+            if (!this.checkCollision(this.mesh.position.x, this.mesh.position.z + moveZ, mapData)) {
+                this.mesh.position.z += moveZ;
             }
         }
 
-        // 2. AI LOGIC
-        const dist = this.mesh.position.distanceTo(playerPos);
+        // C. Attack (Use 2D distance)
+        // If we are close enough horizontally, we can bite
+        if (dist2D <= this.stats.attackRange && this.attackTimer <= 0) {
+            this.attack();
+        }
+    }
 
-        if (dist < this.stats.aggroRange) {
-            // Look at player (Rotate the whole group)
-            this.mesh.lookAt(playerPos.x, this.mesh.position.y, playerPos.z);
+    // --- NEW: Physics for Enemy-Enemy Collision ---
+    calculateSeparation(allEnemies) {
+        const force = new THREE.Vector3();
+        const tooClose = 0.8; // Minimum distance between monsters
 
-            if (dist > this.stats.stopDist) {
-                const dir = new THREE.Vector3()
-                    .subVectors(playerPos, this.mesh.position)
-                    .normalize();
+        allEnemies.forEach(other => {
+            if (other === this || other.isDead) return;
 
-                const moveX = dir.x * this.speed * delta;
-                const moveZ = dir.z * this.speed * delta;
+            const dx = this.mesh.position.x - other.mesh.position.x;
+            const dz = this.mesh.position.z - other.mesh.position.z;
+            const distSq = dx*dx + dz*dz;
 
-                // Collision Check
-                if (!this.checkCollision(this.mesh.position.x + moveX, this.mesh.position.z, mapData)) {
-                    this.mesh.position.x += moveX;
-                }
-                if (!this.checkCollision(this.mesh.position.x, this.mesh.position.z + moveZ, mapData)) {
-                    this.mesh.position.z += moveZ;
-                }
+            if (distSq < tooClose * tooClose && distSq > 0.001) {
+                const dist = Math.sqrt(distSq);
+                // Push away! Closer = Stronger push
+                force.x += (dx / dist) / dist; 
+                force.z += (dz / dist) / dist;
             }
+        });
+        
+        // Weight the separation force (1.5 is moderate push)
+        return force.multiplyScalar(1.5); 
+    }
+
+    attack() {
+        this.attackTimer = this.stats.attackSpeed;
+        const isDead = state.modifyHP(-this.stats.damage);
+        
+        if (this.audioManager) {
+            // Using a slightly randomized pitch for variety
+            // Passing 'null' position means it plays "inside head" (2D), ideal for getting hit
+            this.audioManager.playSFX('hit', null); 
         }
 
-        // 3. Walking Animation (Bobbing)
-        // We animate the Y position of the Group
-        const time = Date.now() * 0.005 + this.floatOffset;
-        // A heavier, lurching bob
-        this.mesh.position.y = Math.sin(time) * 0.05; 
+        console.log(`Player Hit! HP: ${state.data.hp}`);
+        if(isDead) console.log("GAME OVER");
     }
 
     checkCollision(x, z, mapData) {
@@ -158,14 +192,5 @@ export class Enemy {
             return true;
         }
         return mapData[gridZ][gridX] === 1;
-    }
-    
-    dispose() {
-        this.scene.remove(this.mesh);
-        // Loop through children to clean up memory
-        this.mesh.children.forEach(child => {
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
-        });
     }
 }

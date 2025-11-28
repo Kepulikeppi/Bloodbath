@@ -78,8 +78,12 @@ const engine = new Engine((delta) => {
         // Check Enemies
         // Note: enemies needs mapData, which comes from loadLevel. 
         // We'll assume mapData is available in the closure after loading.
-        if(enemies.length > 0 && minimap) {
-             enemies.forEach(enemy => enemy.update(delta, engine.camera.position, minimap.map));
+        if (enemies.length > 0 && mapData) {
+             // 1. delta: Time (for speed)
+             // 2. camera.position: Target (Player)
+             // 3. mapData: Walls (Collision)
+             // 4. enemies: Friends (Separation logic)
+             enemies.forEach(enemy => enemy.update(delta, engine.camera.position, mapData, enemies));
         }
         
         // Check Debris
