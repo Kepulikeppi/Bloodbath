@@ -57,23 +57,14 @@ export class MusicPlayerUI {
     }
 
 startVisualizer() {
-        let lastTime = 0;
-        // Optimization: Limit visualizer to 60 FPS.
-        const FPS = 60; 
-        const interval = 1000 / FPS;
-
-        const draw = (timestamp) => {
+            const draw = () => {
             requestAnimationFrame(draw);
             
-            // 1. Throttle: Skip frame if too fast
-            const elapsed = timestamp - lastTime;
-            if (elapsed < interval) return;
-            lastTime = timestamp - (elapsed % interval);
-
-            // 2. Safety check for Pause Menu in game
+            // Safety check for Pause Menu in game
             const pauseMenu = document.getElementById('pause-menu');
             const isMenuHidden = pauseMenu && pauseMenu.style.display === 'none';
-            // In game: if menu is closed (hidden), don't draw.
+            
+            // In game: if menu is closed (hidden), don't draw to save resources.
             // In main menu: pauseMenu is null, so we keep drawing.
             if (pauseMenu && isMenuHidden) return; 
 
@@ -82,12 +73,11 @@ startVisualizer() {
             const width = this.canvas.width; 
             const height = this.canvas.height;
 
-            // 3. Optimization: If music is stopped, just clear once and wait
-            // We check if it's already cleared to avoid redundant GPU calls, 
-            // but a 20fps clear is negligible.
+            // Clear the canvas
             this.ctx.fillStyle = '#000000'; 
             this.ctx.fillRect(0, 0, width, height);
 
+            // If music isn't playing, we just leave it black (cleared above)
             if (!this.audioManager.isPlaying) return;
 
             const data = this.audioManager.getFrequencyData();
@@ -100,14 +90,15 @@ startVisualizer() {
                 const value = data[index] || 0; 
                 const percent = value / 255.0;
                 
-                // Add a small threshold so we don't draw 1px bars for silence
+                // Small threshold to keep black silence clean
                 if (percent < 0.02) continue;
 
                 const barHeight = (percent * percent) * height; 
                 this.ctx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
             }
         };
-        // Start the loop passing the initial timestamp
-        requestAnimationFrame(draw);
+        
+        // Kick off the loop
+        draw();
     }
 }
