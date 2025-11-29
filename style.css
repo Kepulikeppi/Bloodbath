@@ -908,3 +908,77 @@ input[type=range] {
     font-size: 1.2rem; cursor: pointer; transition: 0.2s;
 }
 .death-buttons button:hover { background: #f00; color: #000; }
+
+/* SESSION INDICATOR */
+#session-display {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #f00;
+    border-bottom: 1px solid #500;
+    padding-bottom: 5px;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+}
+#session-name { font-weight: bold; text-transform: uppercase; }
+.status-none { color: #555; }
+.status-active { color: #fff; text-shadow: 0 0 5px #f00; }
+
+
+/* SESSION INPUT MODAL */
+#session-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 100;
+    display: flex; justify-content: center; align-items: center;
+    backdrop-filter: blur(2px);
+}
+
+.session-box {
+    width: 400px;
+    border: 2px solid #f00;
+    background: #000;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 0 30px #f00;
+    font-family: 'Courier New', monospace;
+}
+
+.session-box h2 {
+    color: #f00; margin-top: 0;
+    border-bottom: 1px solid #500; padding-bottom: 10px;
+}
+
+.session-box p { color: #fff; margin-bottom: 20px; }
+
+#session-input {
+    background: #111; border: 1px solid #f00;
+    color: #f00; font-family: 'Courier New', monospace;
+    font-size: 1.5rem; padding: 10px; width: 80%;
+    text-align: center; text-transform: uppercase;
+    outline: none; margin-bottom: 20px;
+}
+#session-input:focus { background: #200; box-shadow: 0 0 10px #f00; }
+
+.session-buttons { display: flex; justify-content: center; gap: 20px; }
+.session-buttons button {
+    background: #000; color: #f00; border: 1px solid #f00;
+    padding: 10px 20px; font-family: 'Arial Black'; cursor: pointer;
+}
+.session-buttons button:hover { background: #f00; color: #000; }
+
+#btn-logout {
+    background: transparent;
+    border: none;
+    color: #f00;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-left: 10px;
+    opacity: 0.7;
+}
+
+#btn-logout:hover {
+    opacity: 1;
+    text-decoration: underline;
+    text-shadow: 0 0 5px #f00;
+}

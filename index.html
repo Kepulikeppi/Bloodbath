@@ -42,12 +42,17 @@
 
     <!-- Sidebar UI -->
     <div id="ui-layer">
-        
+        <!-- SESSION INDICATOR WITH LOGOUT BUTTON -->
+        <div id="session-display">
+            SESSION: <span id="session-name" class="status-none">DEFAULT</span>
+            <button id="btn-logout" style="display: none;" title="End Session">[ RESET ]</button>
+        </div>
         <div class="menu-top">
             <h1>BLOODBATH</h1>
 			
             <div id="menu-controls">
                 <button id="start-btn">NEW GAME</button>
+                <button id="session-btn">SESSION</button>
 				<button id="credits-btn">CREDITS</button>
 				  
             </div>
@@ -81,34 +86,54 @@
 
     </div>
 	<div id="credits-overlay" style="display: none;">
-    <div class="credits-box">
-        <h2>// CREDITS //</h2>
-        
-        <div class="credits-content">
-            <h3>DESIGN AND PROGRAMMING</h3>
-            <p>Kepulikeppi</p>
+        <div class="credits-box">
+            <h2>// CREDITS //</h2>
             
-            <h3>MUSIC</h3>
-            <p>Kepulikeppi</p>
-            <ul class="credit-list">
-				<li>Bloodbath - Main Theme</li>
-                <li>Tale of a Folk Hero</li>
-                <li>Bloodthirsty Clown</li>
-                <li>Welcome to Hell</li>
-            </ul>
+            <div class="credits-content">
+                <h3>DESIGN AND PROGRAMMING</h3>
+                <p>Kepulikeppi</p>
+                
+                <h3>MUSIC</h3>
+                <p>Kepulikeppi</p>
+                <ul class="credit-list">
+                    <li>Bloodbath - Main Theme</li>
+                    <li>Tale of a Folk Hero</li>
+                    <li>Bloodthirsty Clown</li>
+                    <li>Welcome to Hell</li>
+                </ul>
 
-            <h3>TEXTURE PACKS</h3>
-            <p>AmbientCG.com (Creative Commons Zero)</p>
-            
-            <h3>SOUND EFFECTS</h3>
-            <p>Freesound.org (Creative Commons Zero)</p>
-			<p>Pixabay.com (Creative Commons Zero)</p>
-            
+                <h3>TEXTURE PACKS</h3>
+                <p>AmbientCG.com (Creative Commons Zero)</p>
+                
+                <h3>SOUND EFFECTS</h3>
+                <p>Freesound.org (Creative Commons Zero)</p>
+                <p>Pixabay.com (Creative Commons Zero)</p>
+                
+            </div>
+
+            <button id="credits-close-btn">[ CLOSE ]</button>
         </div>
-
-        <button id="credits-close-btn">[ CLOSE ]</button>
     </div>
-</div>
+        
+    <!-- SESSION INPUT MODAL -->
+    <div id="session-overlay" style="display: none;">
+        <div class="session-box">
+            <h2>SESSION NAME</h2>
+            <p>Enter a name (A-Z, 0-9)</p>
+            <p>Naming your session keeps it alive for up to 24 hours. This saves your in-game progess.</p>
+            <p></p>
+            <p>The game will not save any personal information. The session is identified by a randomly generated ID</p>
+            <p>The session will be deleted when the browser is closed, or when the browser cache is cleared</p>
+            <input type="text" id="session-input" maxlength="15" placeholder="Friendly name..." autocomplete="off">
+            
+            <div class="session-buttons">
+                <button id="btn-confirm-session">SAVE</button>
+                <button id="btn-cancel-session">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+  
     <!-- Load ONLY Menu Logic -->
     <script type="module" src="./src/menu.js"></script>
 </body>
