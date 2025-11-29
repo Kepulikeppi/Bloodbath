@@ -19,7 +19,14 @@ console.log("1. Game Script Loaded");
 // --- 1. GET SETTINGS ---
 const urlParams = new URLSearchParams(window.location.search);
 const seed = urlParams.get('seed') || "DEFAULT";
-let currentLevel = parseInt(urlParams.get('level')) || 1;
+// Default to 1, but we will fetch the real level in loadLevel()
+let currentLevel = 1; 
+
+//Check local cache for level info first while we wait for the API
+try {
+    const cached = sessionStorage.getItem('bloodbath_level_cache');
+    if (cached) currentLevel = parseInt(cached);
+} catch(e) {}
 
 const loadingUI = new LoadingScreen();
 loadingUI.setTitle(currentLevel);
@@ -42,7 +49,7 @@ let levelMeshes = [];
 let gameActive = false; 
 let isLevelReady = false;
 let isDying = false; 
-let deathFallDirection = 0; // 0=Left, 1=Right, 2=Back
+let deathFallDirection = 0; 
 
 // --- 3. SETUP SYSTEMS ---
 const input = new Input();
@@ -66,30 +73,20 @@ const musicUI = new MusicPlayerUI(audioManager);
 // Engine
 const engine = new Engine((delta) => {
     
-    // A. DEATH SEQUENCE ANIMATION (UPDATED)
+    // A. DEATH SEQUENCE ANIMATION
     if (isDying) {
-        // 1. Gravity Drop
         if (engine.camera.position.y > 0.2) {
-            engine.camera.position.y -= delta * 4.0; // Fast drop
+            engine.camera.position.y -= delta * 4.0; 
         }
-
-        // 2. Rotation Animation based on Direction
         const rotSpeed = delta * 3.0;
-
         if (deathFallDirection === 0) { 
-            // FALL LEFT (-90 deg Z)
             engine.camera.rotation.z = THREE.MathUtils.lerp(engine.camera.rotation.z, -Math.PI / 2, rotSpeed);
-        } 
-        else if (deathFallDirection === 1) { 
-            // FALL RIGHT (+90 deg Z)
+        } else if (deathFallDirection === 1) { 
             engine.camera.rotation.z = THREE.MathUtils.lerp(engine.camera.rotation.z, Math.PI / 2, rotSpeed);
-        } 
-        else { 
-            // FALL BACK (+90 deg X - Look at ceiling)
+        } else { 
             engine.camera.rotation.x = THREE.MathUtils.lerp(engine.camera.rotation.x, Math.PI / 2, rotSpeed);
         }
-        
-        return; // STOP all other game logic
+        return; 
     }
 
     if (!gameActive) return;
@@ -98,7 +95,6 @@ const engine = new Engine((delta) => {
     if (player && engine.controls.isLocked) {
         player.update(delta, input);
         
-        // CHECK HEALTH
         if (state.data.hp <= 0 && !isDying) {
             triggerGameOver();
         }
@@ -130,12 +126,26 @@ engine.renderer.domElement.id = 'game-canvas';
 audioManager.setCamera(engine.camera); 
 const levelManager = new LevelManager(engine, currentLevel, audioManager);
 
-// --- 4. ASYNC LOADING SEQUENCE ---
+// --- 4. ASYNC LOADING SEQUENCE (UPDATED) ---
 let mapData; 
 
-function loadLevel() {
+async function loadLevel() {
     state.data.runStats.startTime = Date.now(); 
     
+    // FIX 1: Fetch Real Level from Server BEFORE showing title
+    try {
+        const res = await fetch('api/get_status.php');
+        const data = await res.json();
+        if (data.active) {
+            currentLevel = data.level;
+            // Also update levelManager so it knows the correct number
+            if(levelManager) levelManager.currentLevel = currentLevel;
+        }
+    } catch(e) {
+        console.warn("API Error, using default Level 1");
+    }
+
+    loadingUI.setTitle(currentLevel); // Now shows correct level
     loadingUI.update(10, "GENERATING SECTOR...");
 
     setTimeout(() => {
@@ -198,16 +208,12 @@ function triggerGameOver() {
     const overlay = document.getElementById('damage-overlay');
     if (overlay) overlay.style.opacity = '0.55'; 
     
-    // DO NOT Unlock controls yet! 
-    // If we unlock now, the Engine throttles FPS to 10, killing the animation.
-        
     setTimeout(() => {
         showDeathScreen();
     }, 2000);
 }
 
 function showDeathScreen() {
-    // Unlock controls NOW, so the user can click buttons.
     engine.controls.unlock();
 
     if (Config.MUSIC_DEATH) {
@@ -305,7 +311,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// --- 7. UI EVENTS ---
+// --- 7. UI EVENTS (UPDATED FOR FIX 2) ---
 const pauseMenu = document.getElementById('pause-menu');
 const crosshair = document.getElementById('crosshair');
 
@@ -316,6 +322,9 @@ engine.controls.addEventListener('unlock', () => {
         pauseMenu.style.display = 'flex';
         crosshair.style.display = 'none';
         document.body.style.cursor = 'default';
+        
+        // FIX 2: STOP TIME to prevent physics jumps
+        engine.clock.stop();
     }
 });
 
@@ -324,6 +333,9 @@ engine.controls.addEventListener('lock', () => {
         pauseMenu.style.display = 'none';
         crosshair.style.display = 'block';
         document.body.style.cursor = 'none';
+        
+        // FIX 2: RESUME TIME
+        engine.clock.start();
     }
 });
 
@@ -332,11 +344,34 @@ document.getElementById('btn-resume').addEventListener('click', () => {
 });
 document.getElementById('btn-quit').addEventListener('click', () => window.location.href = 'index.html');
 
+// DEATH BUTTONS
 document.getElementById('btn-restart').addEventListener('click', () => {
+    // 1. Reset Local Client State (HP, Ammo)
     state.data.hp = state.data.maxHp;
     state.reset(); 
-    window.location.href = window.location.href.split('?')[0] + '?seed=' + Math.floor(Math.random()*9999);
+    sessionStorage.setItem('bloodbath_level_cache', '1');
+
+    // 2. Tell Server to Reset Run (Level 1, New Seed)
+    // Sending an empty object {} tells the backend to keep the current Name/Identity
+    // but reset everything else.
+    fetch('api/new_run.php', {
+        method: 'POST',
+        body: JSON.stringify({}) 
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            // 3. Reload the page to start the new level 1
+            window.location.reload();
+        }
+    })
+    .catch(err => {
+        console.error("Restart Failed", err);
+        // Fallback: Reload anyway, though server might still be on old level if fetch failed
+        window.location.reload();
+    });
 });
+
 document.getElementById('btn-menu').addEventListener('click', () => window.location.href = 'index.html');
 
 document.body.addEventListener('click', () => {

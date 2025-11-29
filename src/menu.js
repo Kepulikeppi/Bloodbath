@@ -4,11 +4,12 @@ import { state } from './Game/GameState.js';
 
 console.log("[Menu] Script Loading...");
 
-// 1. SETUP AUDIO
+// =================================================================
+// 1. SETUP AUDIO & VOLUME
+// =================================================================
 const audioManager = new AudioManager(); 
 audioManager.setPlaylist(Config.PLAYLIST);
 
-// 2. INITIALIZE VOLUME
 const volSlider = document.getElementById('vol-music');
 try {
     const savedVol = localStorage.getItem('bloodbath_volume');
@@ -16,12 +17,26 @@ try {
         const val = parseFloat(savedVol);
         if (volSlider) volSlider.value = val;
         audioManager.setVolume(val);
+    } else {
+        if (volSlider) volSlider.value = Config.AUDIO_DEFAULT_VOL;
+        audioManager.setVolume(Config.AUDIO_DEFAULT_VOL);
     }
 } catch (e) {
-    console.warn("Volume load error", e);
+    if (volSlider) volSlider.value = Config.AUDIO_DEFAULT_VOL;
+    audioManager.setVolume(Config.AUDIO_DEFAULT_VOL);
 }
 
-// 3. VISUALIZER LOOP
+if (volSlider) {
+    volSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        audioManager.setVolume(val);
+        try { localStorage.setItem('bloodbath_volume', val); } catch(e){}
+    });
+}
+
+// =================================================================
+// 2. VISUALIZER LOOP
+// =================================================================
 const canvas = document.getElementById('viz-canvas');
 const ctx = canvas ? canvas.getContext('2d') : null;
 
@@ -39,7 +54,7 @@ function drawLoop() {
 
     const data = audioManager.getFrequencyData();
     const barCount = Config.VIZ_BAR_COUNT; 
-    const startBin = Config.VIZ_BIN_START; 
+    const startBin = Config.VIZ_BIN_START;
     const step = Config.VIZ_BIN_STEP;
     const barWidth = width / barCount;
     
@@ -50,12 +65,15 @@ function drawLoop() {
         const value = data[index] || 0; 
         const percent = value / 255.0;
         const barHeight = (percent * percent) * height; 
+        
         ctx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
     }
 }
 drawLoop(); 
 
-// 4. UI LOGIC (Audio Controls)
+// =================================================================
+// 3. UI LOGIC (Audio Controls)
+// =================================================================
 window.addEventListener('trackchange', (e) => {
     let fileName = e.detail.split('/').pop().split('.')[0];
     try { fileName = decodeURIComponent(fileName).toUpperCase(); } catch(e){}
@@ -74,8 +92,10 @@ window.addEventListener('trackchange', (e) => {
 
 const btnPlay = document.getElementById('btn-play');
 if(btnPlay) btnPlay.addEventListener('click', () => audioManager.play());
+
 const btnNext = document.getElementById('btn-next');
 if(btnNext) btnNext.addEventListener('click', () => audioManager.next());
+
 const btnStop = document.getElementById('btn-stop');
 if(btnStop) btnStop.addEventListener('click', () => {
     audioManager.stop();
@@ -83,28 +103,20 @@ if(btnStop) btnStop.addEventListener('click', () => {
     if(trackEl) trackEl.innerText = "STANDBY";
 });
 
-if (volSlider) {
-    volSlider.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value);
-        audioManager.setVolume(val);
-        try { localStorage.setItem('bloodbath_volume', val); } catch(e){}
-    });
-}
-
-// 5. SPLASH SCREEN LOGIC
+// =================================================================
+// 4. SPLASH SCREEN LOGIC
+// =================================================================
 const splash = document.getElementById('splash-screen');
 const splashText = document.getElementById('splash-text');
 const mobileWarning = document.getElementById('mobile-warning');
 const mobileBtn = document.getElementById('mobile-continue-btn');
 
 function startSystem() {
-    console.log("[Menu] Splash Clicked! Initializing System...");
+    console.log("[Menu] System initializing...");
     if (splash) splash.classList.add('fade-out');
     
-    // Resume Audio Context (Browser requirement)
     if (audioManager.listener.context.state === 'suspended') {
         audioManager.listener.context.resume().then(() => {
-            console.log("Audio Context Resumed");
             audioManager.play();
         });
     } else {
@@ -116,12 +128,9 @@ function startSystem() {
     }, 2000);
 }
 
-// Logic to determine if we show splash
 if (sessionStorage.getItem('bloodbath_gamestarted') === 'true') {
-    console.log("[Menu] Skipping splash (Game already started once)");
     if (splash) splash.style.display = 'none';
 } else {
-    // Check if mobile
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
                      || window.innerWidth < 900;
 
@@ -132,83 +141,105 @@ if (sessionStorage.getItem('bloodbath_gamestarted') === 'true') {
         if (mobileWarning) mobileWarning.style.display = 'block';
         if (mobileBtn) mobileBtn.addEventListener('click', (e) => { e.stopPropagation(); startSystem(); });
     } else {
-        // Desktop: Attach Click Listener
-        if (splash) {
-            console.log("[Menu] Attaching click listener to Splash Screen");
-            splash.style.zIndex = "9999"; // Force it to top just in case
-            splash.addEventListener('click', startSystem);
-        } else {
-            console.error("Splash Screen Element NOT found!");
-        }
+        if (splash) splash.addEventListener('click', startSystem);
     }
 }
 
-// 6. MAIN MENU LOGIC
+// =================================================================
+// 5. MAIN MENU & SESSION LOGIC (REWRITTEN)
+// =================================================================
 document.addEventListener('DOMContentLoaded', () => {
+    // UI Elements
     const sessionNameEl = document.getElementById('session-name');
-    const startBtn = document.getElementById('start-btn');
-    const sessionBtn = document.getElementById('session-btn'); 
-    const btnLogout = document.getElementById('btn-logout'); 
+    const startBtn = document.getElementById('start-btn');       // "NEW GAME"
+    const continueBtn = document.getElementById('continue-btn'); // "CONTINUE"
+    const sessionBtn = document.getElementById('session-btn');   // "SESSION"
+    const btnLogout = document.getElementById('btn-logout');     // "[ RESET ]"
 
+    // Modal Elements
     const sessionOverlay = document.getElementById('session-overlay');
     const sessionInput = document.getElementById('session-input');
     const btnConfirm = document.getElementById('btn-confirm-session');
     const btnCancel = document.getElementById('btn-cancel-session');
     
+    // Credits Elements
     const creditsBtn = document.getElementById('credits-btn');
     const creditsOverlay = document.getElementById('credits-overlay');
     const creditsClose = document.getElementById('credits-close-btn');
 
     let isNamedSession = false;
+    let currentSessionName = "DEFAULT";
 
-    // A. Check Session Status (UPDATED PATH)
-    fetch('/api/get_status.php') // Using absolute path
-        .then(res => res.json())
-        .then(data => {
-            console.log("[Menu] PHP Status:", data);
-            if (data.active) {
-                if (data.name === 'DEFAULT') {
-                    // Default Session
-                    isNamedSession = false;
-                    sessionNameEl.innerText = "DEFAULT";
-                    sessionNameEl.className = 'status-default';
-                    startBtn.innerText = "NEW GAME";
-                    if(sessionBtn) sessionBtn.style.display = 'block';
-                    if(btnLogout) btnLogout.style.display = 'none';
-                } else {
-                    // Named Session
+    // --- A. INITIAL CHECK ---
+    refreshSessionStatus();
+
+    function refreshSessionStatus() {
+        fetch('api/get_status.php')
+            .then(res => res.json())
+            .then(data => {
+                if (data.active && data.name !== 'DEFAULT') {
+                    // === NAMED SESSION ===
                     isNamedSession = true;
+                    currentSessionName = data.name;
+
+                    // Update Top Bar
                     sessionNameEl.innerText = data.name;
                     sessionNameEl.className = 'status-active';
-                    startBtn.innerText = `CONTINUE (LVL ${data.level})`;
-                    if(sessionBtn) sessionBtn.style.display = 'none';
                     if(btnLogout) btnLogout.style.display = 'inline';
-                }
-            } else {
-                // No Session
-                isNamedSession = false;
-                sessionNameEl.innerText = "DEFAULT";
-                sessionNameEl.className = 'status-default';
-                startBtn.innerText = "NEW GAME";
-                if(sessionBtn) sessionBtn.style.display = 'block';
-                if(btnLogout) btnLogout.style.display = 'none';
-            }
-        })
-        .catch(err => console.warn("PHP Backend Offline or JSON Error", err));
 
-    // B. Start Button Logic
+                    // Update Menu Buttons
+                    if(continueBtn) {
+                        continueBtn.style.display = 'block';
+                        continueBtn.innerText = `CONTINUE (LVL ${data.level})`;
+                    }
+                    if(sessionBtn) sessionBtn.style.display = 'none'; // Hide identity button
+                    
+                } else {
+                    // === DEFAULT / NO SESSION ===
+                    isNamedSession = false;
+                    currentSessionName = "DEFAULT";
+
+                    // Update Top Bar
+                    sessionNameEl.innerText = "DEFAULT";
+                    sessionNameEl.className = 'status-default';
+                    if(btnLogout) btnLogout.style.display = 'none';
+
+                    // Update Menu Buttons
+                    if(continueBtn) continueBtn.style.display = 'none';
+                    if(sessionBtn) sessionBtn.style.display = 'block';
+                }
+            })
+            .catch(err => console.warn("Backend Error:", err));
+    }
+
+    // --- B. BUTTON HANDLERS ---
+
+    // 1. CONTINUE BUTTON
+    if (continueBtn) {
+        continueBtn.addEventListener('click', () => {
+            // Just load the game. PHP holds the state.
+            saveMusicState();
+            window.location.href = 'game.html';
+        });
+    }
+
+    // 2. NEW GAME BUTTON
     if (startBtn) {
         startBtn.addEventListener('click', () => {
             if (isNamedSession) {
-                saveMusicState();
-                window.location.href = 'game.html';
+                // If we have a name, warn the user they are resetting to Level 1
+                if (confirm(`Reset current run and start from Level 1? \n(Identity '${currentSessionName}' will be kept)`)) {
+                    // Pass NULL as name to tell backend: "Keep existing name, just reset run"
+                    startNewRun(null, true); 
+                }
             } else {
-                startNewRun("DEFAULT");
+                // Default session -> Just overwrite it instantly
+                startNewRun("DEFAULT", true);
             }
         });
     }
 
-    // C. Session Button
+    // 3. SESSION BUTTON (Open Modal)
     if (sessionBtn) {
         sessionBtn.addEventListener('click', () => {
             if (sessionOverlay) {
@@ -221,7 +252,88 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // D. Input Logic
+    // 4. MODAL CONFIRM (Save Name)
+    if (btnConfirm) {
+        btnConfirm.addEventListener('click', () => {
+            const name = sessionInput.value.trim();
+            if (name.length < 1) {
+                alert("NAME REQUIRED");
+                return;
+            }
+            // Save name, but DO NOT launch game (false)
+            startNewRun(name, false); 
+        });
+    }
+
+    // 5. LOGOUT / RESET LINK
+    if (btnLogout) {
+        btnLogout.addEventListener('click', () => {
+            if (confirm("Reset Session? This will delete your identity.")) {
+                fetch('api/logout.php')
+                    .then(res => res.json())
+                    .then(() => {
+                        window.location.reload();
+                    })
+                    .catch(err => {
+                        console.error("Logout Error", err);
+                        window.location.reload();
+                    });
+            }
+        });
+    }
+
+    // --- C. HELPER FUNCTIONS ---
+
+    /**
+     * Calls PHP to reset/create run.
+     * @param {string|null} name - Name to set. If null, keeps existing PHP session name.
+     * @param {boolean} shouldLaunch - If true, redirects to game.html. If false, refreshes menu.
+     */
+    function startNewRun(name, shouldLaunch) {
+        // Prepare payload. 
+        // If name is null, we send empty object. api/new_run.php handles that by keeping existing name.
+        const payload = name ? { name: name } : {};
+
+        fetch('api/new_run.php', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                // Reset Client State
+                state.reset(); 
+                
+                // Clear Visual Cache so Loading Screen is accurate (Level 1)
+                sessionStorage.setItem('bloodbath_level_cache', '1');
+
+                if (shouldLaunch) {
+                    saveMusicState();
+                    window.location.href = 'game.html';
+                } else {
+                    // Update UI (Close modal, show Continue button)
+                    if (sessionOverlay) sessionOverlay.style.display = 'none';
+                    refreshSessionStatus();
+                }
+            }
+        })
+        .catch(err => console.error("New Run API Error:", err));
+    }
+
+    function saveMusicState() {
+        if (audioManager.isPlaying) sessionStorage.setItem('bloodbath_music_active', 'true');
+        else sessionStorage.setItem('bloodbath_music_active', 'false');
+        sessionStorage.setItem('bloodbath_gamestarted', 'true');
+    }
+
+    // --- D. STANDARD UI EVENTS ---
+
+    // Modal Cancel
+    if (btnCancel && sessionOverlay) {
+        btnCancel.addEventListener('click', () => sessionOverlay.style.display = 'none');
+    }
+
+    // Input Validation (A-Z, 0-9 only)
     if (sessionInput) {
         sessionInput.addEventListener('input', (e) => {
             e.target.value = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
@@ -231,57 +343,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // E. Confirm
-    if (btnConfirm) {
-        btnConfirm.addEventListener('click', () => {
-            const name = sessionInput.value.trim();
-            if (name.length < 1) {
-                alert("NAME REQUIRED");
-                return;
-            }
-            startNewRun(name);
-        });
-    }
-
-    // F. Logout
-    if (btnLogout) {
-        btnLogout.addEventListener('click', () => {
-            if(confirm("TERMINATE SESSION?")) {
-                fetch('/api/logout.php')
-                    .then(res => res.json())
-                    .then(() => window.location.reload());
-            }
-        });
-    }
-
-    function startNewRun(name) {
-        fetch('/api/new_run.php', {
-            method: 'POST',
-            body: JSON.stringify({ name: name })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'ok') {
-                state.reset(); 
-                saveMusicState();
-                window.location.href = 'game.html'; 
-            }
-        });
-    }
-
-    // UI Helpers
-    if (btnCancel && sessionOverlay) {
-        btnCancel.addEventListener('click', () => sessionOverlay.style.display = 'none');
-    }
-
+    // Credits
     if (creditsBtn && creditsOverlay) {
         creditsBtn.addEventListener('click', () => creditsOverlay.style.display = 'flex');
         creditsClose.addEventListener('click', () => creditsOverlay.style.display = 'none');
-    }
-    
-    function saveMusicState() {
-        if (audioManager.isPlaying) sessionStorage.setItem('bloodbath_music_active', 'true');
-        else sessionStorage.setItem('bloodbath_music_active', 'false');
-        sessionStorage.setItem('bloodbath_gamestarted', 'true');
+        creditsOverlay.addEventListener('click', (e) => {
+            if (e.target === creditsOverlay) creditsOverlay.style.display = 'none';
+        });
     }
 });

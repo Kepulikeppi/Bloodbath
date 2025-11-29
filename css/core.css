@@ -36,7 +36,7 @@ h1 {
 /* Used in Menu, Pause, Session, etc. */
 button.wireframe-btn, 
 #start-btn, #credits-btn, #session-btn, 
-#btn-next-level, #btn-restart, #btn-menu {
+#btn-next-level, #btn-restart, #btn-menu, #continue-btn {
     background: transparent; 
     color: #f00;
     border: 1px solid #f00; 
