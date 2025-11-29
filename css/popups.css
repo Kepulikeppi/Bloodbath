@@ -1,0 +1,74 @@
+/* === PAUSE MENU === */
+#pause-menu {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 500px; background: rgba(0, 0, 0, 0.95);
+    border: 2px solid #f00; box-shadow: 0 0 50px rgba(255, 0, 0, 0.2);
+    padding: 30px; text-align: center; z-index: 100;
+    display: flex; flex-direction: column; gap: 20px;
+}
+#pause-menu h1 { font-size: 2.5rem; border-bottom: 1px solid #500; padding-bottom: 10px; }
+#pause-menu p { color: #f00; font-family: 'Courier New', monospace; font-weight: bold; }
+.menu-buttons { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; }
+.menu-buttons button {
+    background: transparent; border: 1px solid #f00; color: #f00;
+    padding: 10px 20px; font-family: 'Courier New', monospace;
+    font-weight: bold; cursor: pointer; transition: all 0.2s;
+}
+.menu-buttons button:hover { background: #f00; color: #000; }
+
+/* === GAME OVER === */
+#game-over-screen {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 500px; background: rgba(10, 0, 0, 0.95);
+    border: 3px solid #f00; box-shadow: 0 0 100px #f00;
+    padding: 40px; display: none; flex-direction: column;
+    align-items: center; gap: 20px; z-index: 200;
+}
+#game-over-title {
+    font-family: 'IM Fell English SC', serif; font-size: 4rem; color: #f00;
+    text-shadow: 0 0 20px #f00; border-bottom: 1px solid #500; width: 100%; text-align: center;
+}
+.stat-row {
+    display: flex; justify-content: space-between; width: 100%;
+    font-family: 'Courier New', monospace; font-size: 1.2rem;
+    color: #fff; border-bottom: 1px dashed #333; padding: 5px 0;
+}
+.stat-val { color: #f00; font-weight: bold; }
+.death-buttons { display: flex; gap: 20px; margin-top: 20px; }
+.death-buttons button {
+    background: #000; color: #f00; border: 1px solid #f00;
+    padding: 15px 30px; font-family: 'Courier New', monospace;
+    font-size: 1.2rem; cursor: pointer; transition: 0.2s;
+}
+.death-buttons button:hover { background: #f00; color: #000; }
+
+/* === LEVEL COMPLETE === */
+#level-screen {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 600px; background: rgba(0, 10, 0, 0.95);
+    border: 2px solid #0f0; box-shadow: 0 0 50px rgba(0, 255, 0, 0.2);
+    padding: 40px; text-align: center; z-index: 100;
+    display: flex; flex-direction: column; gap: 30px;
+}
+#level-screen h1 {
+    color: #0f0; font-family: 'Courier New', monospace; font-size: 3rem;
+    letter-spacing: 5px; text-shadow: 0 0 20px #0f0;
+    border-bottom: 1px solid #050; padding-bottom: 20px;
+}
+.stats-box { border: 1px solid #050; background: rgba(0, 20, 0, 0.5); padding: 20px; }
+.stats-box p { color: #fff; font-family: 'Courier New', monospace; font-size: 1.5rem; margin: 10px 0; }
+.stats-box span { color: #0f0; font-weight: bold; }
+
+/* === LOADING SCREEN === */
+#loading-screen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; z-index: 200;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    font-family: 'Courier New', monospace; color: #f00;
+    opacity: 1; transition: opacity 0.5s ease-in-out;
+}
+#loading-screen.fade-out { opacity: 0; pointer-events: none; }
+#loading-title { font-size: 4rem; margin-bottom: 20px; text-shadow: 0 0 20px #f00; }
+#loading-text { font-size: 1.5rem; margin-top: 20px; font-weight: bold; animation: blink 0.5s infinite; }
+#loading-bar-container { width: 50%; height: 10px; border: 2px solid #f00; padding: 2px; }
+#loading-bar { width: 0%; height: 100%; background: #f00; transition: width 0.2s; box-shadow: 0 0 10px #f00; }

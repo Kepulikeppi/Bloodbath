@@ -1,0 +1,37 @@
+/* === MINIMAP HUD === */
+#minimap-container {
+    position: absolute; top: 20px; right: 20px; z-index: 50;
+    border: 2px solid #f00; background: #000;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+    width: 230px; display: flex; flex-direction: column;
+}
+
+#minimap { display: block; background: rgba(0, 10, 0, 0.8); }
+
+.minimap-label {
+    background: #f00; color: #000; font-family: 'Courier New', monospace;
+    font-weight: bold; font-size: 0.8rem; text-align: center;
+    padding: 2px 0; border-top: 1px solid #500;
+}
+
+.minimap-zoom {
+    position: absolute; top: 5px; right: 5px;
+    display: flex; flex-direction: column; gap: 2px;
+}
+.minimap-zoom button {
+    background: rgba(0, 0, 0, 0.8); border: 1px solid #f00; color: #f00;
+    width: 25px; height: 25px; font-weight: bold; font-family: monospace;
+    font-size: 1.2rem; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; padding: 0; line-height: 1;
+}
+.minimap-zoom button:hover { background: #f00; color: #000; }
+
+/* === FULL MAP OVERLAY === */
+#full-map-overlay {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    z-index: 40; border: 2px solid #f00;
+    background: rgba(20, 10, 10, 0.85); 
+    box-shadow: 0 0 50px rgba(255, 0, 0, 0.1);
+    display: flex; flex-direction: column;
+}
+#full-map-canvas { background: transparent; max-width: 90vw; max-height: 80vh; }

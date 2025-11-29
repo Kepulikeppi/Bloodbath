@@ -1,0 +1,128 @@
+/* === BACKGROUND === */
+#menu-bg {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 5; 
+    opacity: 0.6;
+}
+
+/* === SIDEBAR CONTAINER === */
+#ui-layer {
+    position: absolute; top: 0; left: 0; 
+    width: 28%; 
+    min-width: 350px; 
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5); 
+    border-right: 2px solid #500; 
+    display: flex; flex-direction: column; 
+    justify-content: space-between; 
+    padding: 40px;
+    box-sizing: border-box; 
+    z-index: 10;
+}
+
+#menu-controls { display: flex; flex-direction: column; gap: 20px; }
+
+/* === SPLASH SCREEN === */
+#splash-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000;
+    display: flex; flex-direction: column; 
+    justify-content: center; align-items: center;
+    gap: 15px; 
+    z-index: 20; cursor: pointer;
+    opacity: 1; transition: opacity 2s ease-in-out;
+}
+#splash-text { color: #f00; font-size: 1.9rem; animation: blink 1s infinite; }
+#splash-subtext {
+    color: #f00; font-family: 'Courier New', monospace;
+    font-size: 1.1rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;
+}
+
+/* === MOBILE WARNING === */
+#mobile-warning {
+    text-align: center; color: #f00;
+    border: 2px solid #f00; background: rgba(0, 0, 0, 0.95);
+    box-shadow: 0 0 20px #f00;
+    width: 90%; max-width: 600px;
+    padding: 30px 20px; box-sizing: border-box;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+}
+#mobile-warning h2 { font-size: 1.8rem; animation: blink 2s infinite; }
+#mobile-continue-btn {
+    background: #000; color: #f00; border: 1px solid #f00;
+    width: 100%; padding: 20px; font-size: 1.2rem; font-weight: bold;
+    cursor: pointer; text-transform: uppercase;
+}
+
+/* === SESSION INDICATOR === */
+#session-display {
+    font-family: 'Courier New', monospace; font-size: 0.9rem;
+    color: #f00; border-bottom: 1px solid #500;
+    padding-bottom: 5px; margin-bottom: 20px; letter-spacing: 1px;
+}
+#session-name { font-weight: bold; text-transform: uppercase; }
+.status-none { color: #555; }
+.status-active { color: #fff; text-shadow: 0 0 5px #f00; }
+.status-default { color: #777; font-style: italic; }
+
+#btn-logout {
+    background: transparent; border: none; color: #f00;
+    font-family: 'Courier New', monospace; font-size: 0.8rem;
+    cursor: pointer; margin-left: 10px; opacity: 0.7;
+}
+#btn-logout:hover { opacity: 1; text-decoration: underline; text-shadow: 0 0 5px #f00; }
+
+/* === SESSION MODAL === */
+#session-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.9); z-index: 100;
+    display: flex; justify-content: center; align-items: center;
+    backdrop-filter: blur(2px);
+}
+.session-box {
+    width: 400px; border: 2px solid #f00; background: #000;
+    padding: 30px; text-align: center; box-shadow: 0 0 30px #f00;
+    font-family: 'Courier New', monospace;
+}
+.session-box h2 { color: #f00; margin-top: 0; border-bottom: 1px solid #500; padding-bottom: 10px; }
+.session-box p { color: #fff; margin-bottom: 20px; }
+#session-input {
+    background: #111; border: 1px solid #f00; color: #f00;
+    font-family: 'Courier New', monospace; font-size: 1.5rem;
+    padding: 10px; width: 80%; text-align: center; text-transform: uppercase;
+    outline: none; margin-bottom: 20px;
+}
+#session-input:focus { background: #200; box-shadow: 0 0 10px #f00; }
+.session-buttons { display: flex; justify-content: center; gap: 20px; }
+.session-buttons button {
+    background: #000; color: #f00; border: 1px solid #f00;
+    padding: 10px 20px; font-family: 'Arial Black'; cursor: pointer;
+}
+.session-buttons button:hover { background: #f00; color: #000; }
+
+/* === CREDITS === */
+#credits-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85); z-index: 60;
+    display: flex; justify-content: center; align-items: center;
+    backdrop-filter: blur(5px);
+}
+.credits-box {
+    width: 600px; max-width: 90%; background: #050000;
+    border: 2px solid #f00; box-shadow: 0 0 30px rgba(255, 0, 0, 0.3);
+    padding: 30px; color: #f00; display: flex; flex-direction: column; gap: 15px;
+}
+.credits-content { max-height: 400px; overflow-y: auto; padding-right: 10px; line-height: 1.4; }
+.credits-content h3 { color: #000; background: #f00; padding: 5px 10px; margin-top: 20px; font-size: 1rem; font-weight: bold; }
+#credits-close-btn {
+    background: transparent; color: #fff; border: 1px solid #fff; 
+    padding: 10px; cursor: pointer; margin-top: 10px; transition: 0.2s;
+}
+#credits-close-btn:hover { background: #fff; color: #000; }
+
+/* MOBILE RESPONSIVE */
+@media (max-width: 600px) {
+    h1 { font-size: 2.2rem; letter-spacing: 1px; }
+    #ui-layer { width: 85%; padding: 20px; }
+}

@@ -1,0 +1,45 @@
+/* === MUSIC PLAYER WIDGET === */
+#music-player {
+    border: 1px solid #500; background: rgba(0, 0, 0, 0.9);
+    padding: 15px; display: flex; flex-direction: column; gap: 15px;
+    margin-top: auto;
+}
+
+/* Pause Menu Override */
+#pause-menu #music-player {
+    position: relative; width: 100%; margin-top: 0; box-sizing: border-box;
+}
+
+#viz-canvas { width: 100%; height: 50px; background: #050000; border: 1px solid #500; display: block; }
+
+.track-info {
+    height: 24px; position: relative; background: #000; 
+    border: 1px solid #500; color: #f00; overflow: hidden;
+    display: flex; align-items: center;
+}
+
+.scrolling-text {
+    display: flex; position: absolute; white-space: nowrap;
+    animation: infinite-scroll 25s linear infinite;
+}
+@keyframes infinite-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+.controls-row { display: flex; justify-content: space-between; align-items: center; }
+
+/* Buttons */
+#music-player button {
+    -webkit-appearance: none; appearance: none;
+    background: transparent; border: 1px solid #f00; color: #f00;
+    width: 35px; height: 35px; cursor: pointer;
+    font-family: monospace; font-size: 1.2rem;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 0; transition: all 0.2s;
+}
+#music-player button:hover { background: #f00; color: #000; box-shadow: 0 0 10px #f00; }
+
+/* Volume */
+.vol-group { display: flex; align-items: center; gap: 5px; }
+input[type=range] { width: 80px; accent-color: #f00; height: 4px; cursor: pointer; }

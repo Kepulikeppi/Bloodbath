@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&display=swap');
+
+/* === CORE RESET & FONTS === */
+body { 
+    margin: 0; overflow: hidden; background-color: #000; 
+    font-family: 'Courier New', sans-serif; user-select: none; 
+}
+
+h1 {
+    color: #e60000; 
+    font-family: 'IM Fell English SC', serif;
+    font-weight: bold; 
+    font-size: 3.8rem; 
+    margin: 0 0 40px 0;
+    text-transform: uppercase; 
+    letter-spacing: 2px; 
+    text-shadow: 0 0 20px #800000; 
+    border-bottom: 1px solid #500;
+    padding-bottom: 20px;
+    white-space: nowrap;
+}
+
+/* === SHARED ANIMATIONS === */
+@keyframes blink { 
+    0%, 100% { opacity: 1; } 
+    50% { opacity: 0.3; } 
+}
+
+/* === UTILITY CLASSES === */
+.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* SHARED BUTTON STYLE (Wireframe Red) */
+/* Used in Menu, Pause, Session, etc. */
+button.wireframe-btn, 
+#start-btn, #credits-btn, #session-btn, 
+#btn-next-level, #btn-restart, #btn-menu {
+    background: transparent; 
+    color: #f00;
+    border: 1px solid #f00; 
+    padding: 15px;
+    font-size: 1.5rem; 
+    cursor: pointer; 
+    font-family: 'Arial Black', sans-serif;
+    text-transform: uppercase; 
+    letter-spacing: 2px;
+    transition: 0.2s; 
+    text-align: left;
+    width: 100%; 
+    box-sizing: border-box;
+}
+
+#start-btn:hover, #credits-btn:hover, #session-btn:hover,
+#btn-next-level:hover, #btn-restart:hover, #btn-menu:hover { 
+    background: #f00; 
+    color: #000; 
+    box-shadow: 0 0 15px #f00; 
+    padding-left: 25px; 
+}
