@@ -12,9 +12,7 @@ import { LoadingScreen } from './UI/LoadingScreen.js';
 import { LevelManager } from './Game/LevelManager.js';
 import { HUD } from './UI/HUD.js';
 import { MusicPlayerUI } from './UI/MusicPlayerUI.js';
-
-// Entities
-import { Spawner } from './Game/Spawner.js'; // Fix: Ensure Spawner is imported to spawn things
+import { Spawner } from './Game/Spawner.js';
 
 console.log("1. Game Script Loaded");
 
@@ -32,8 +30,7 @@ try {
     if(v !== null) savedVolume = parseFloat(v);
 } catch(e) {}
 
-// --- 2. DECLARE STATE (Moved Up) ---
-// Crucial: These must be defined BEFORE the Engine starts!
+// --- 2. DECLARE STATE ---
 let player = null;
 let weapon = null;
 let minimap = null;
@@ -44,6 +41,8 @@ let levelMeshes = [];
 
 let gameActive = false; 
 let isLevelReady = false;
+let isDying = false; 
+let deathFallDirection = 0; // 0=Left, 1=Right, 2=Back
 
 // --- 3. SETUP SYSTEMS ---
 const input = new Input();
@@ -54,70 +53,92 @@ const audioManager = new AudioManager();
 audioManager.setPlaylist(Config.PLAYLIST);
 audioManager.setVolume(savedVolume);
 
+if(Config.SFX_PLAYER_DEATH) {
+    const l = new THREE.AudioLoader();
+    l.load(Config.SFX_PLAYER_DEATH, (b) => audioManager.sfxBuffers['player_death'] = b);
+}
+
 // UI
 state.load();
 const hud = new HUD();
 const musicUI = new MusicPlayerUI(audioManager);
 
-// Engine (Now safe to create because gameActive exists)
+// Engine
 const engine = new Engine((delta) => {
+    
+    // A. DEATH SEQUENCE ANIMATION (UPDATED)
+    if (isDying) {
+        // 1. Gravity Drop
+        if (engine.camera.position.y > 0.2) {
+            engine.camera.position.y -= delta * 4.0; // Fast drop
+        }
+
+        // 2. Rotation Animation based on Direction
+        const rotSpeed = delta * 3.0;
+
+        if (deathFallDirection === 0) { 
+            // FALL LEFT (-90 deg Z)
+            engine.camera.rotation.z = THREE.MathUtils.lerp(engine.camera.rotation.z, -Math.PI / 2, rotSpeed);
+        } 
+        else if (deathFallDirection === 1) { 
+            // FALL RIGHT (+90 deg Z)
+            engine.camera.rotation.z = THREE.MathUtils.lerp(engine.camera.rotation.z, Math.PI / 2, rotSpeed);
+        } 
+        else { 
+            // FALL BACK (+90 deg X - Look at ceiling)
+            engine.camera.rotation.x = THREE.MathUtils.lerp(engine.camera.rotation.x, Math.PI / 2, rotSpeed);
+        }
+        
+        return; // STOP all other game logic
+    }
+
     if (!gameActive) return;
     
+    // B. NORMAL GAME LOOP
     if (player && engine.controls.isLocked) {
         player.update(delta, input);
         
-        // Check Exit
+        // CHECK HEALTH
+        if (state.data.hp <= 0 && !isDying) {
+            triggerGameOver();
+        }
+
         if (levelManager) levelManager.checkExit(player, exitObject);
         
-        // Check Weapon
         if (weapon) {
             const isMoving = input.keys.forward || input.keys.backward || input.keys.left || input.keys.right;
             weapon.update(delta, isMoving, engine.clock.elapsedTime);
         }
 
-        // Check Enemies
-        // Note: enemies needs mapData, which comes from loadLevel. 
-        // We'll assume mapData is available in the closure after loading.
         if (enemies.length > 0 && mapData) {
-             // 1. delta: Time (for speed)
-             // 2. camera.position: Target (Player)
-             // 3. mapData: Walls (Collision)
-             // 4. enemies: Friends (Separation logic)
              enemies.forEach(enemy => enemy.update(delta, engine.camera.position, mapData, enemies));
         }
         
-        // Check Debris
         if (debrisSystem) debrisSystem.update(delta);
 
-        // Check Maps
-        
         if (minimap) {
             const exitPos = exitObject ? { x: exitObject.position.x, z: exitObject.position.z } : null;
             minimap.update(engine.camera.position, exitPos);
             minimap.updateFull(engine.camera.position, exitPos);
         }
-        
-        // Update HUD
+
         if(hud) hud.update();
     }
 });
 
-audioManager.setCamera(engine.camera);
-
 engine.renderer.domElement.id = 'game-canvas';
+audioManager.setCamera(engine.camera); 
 const levelManager = new LevelManager(engine, currentLevel, audioManager);
 
 // --- 4. ASYNC LOADING SEQUENCE ---
-// We declare mapData here so the engine loop can see it later
 let mapData; 
 
 function loadLevel() {
+    state.data.runStats.startTime = Date.now(); 
+    
     loadingUI.update(10, "GENERATING SECTOR...");
 
     setTimeout(() => {
-        // A. Debris
-        // (We must import DebrisSystem at the top or use the Spawner if you moved it there, 
-        // assuming DebrisSystem is imported from './Game/DebrisSystem.js')
         import('./Game/DebrisSystem.js').then(Module => {
             debrisSystem = new Module.DebrisSystem(engine.scene);
         });
@@ -127,13 +148,6 @@ function loadLevel() {
         const levelScale = 1 + (currentLevel * 0.1);
         const mapWidth = Math.floor(Config.MAP_WIDTH * levelScale);
         const mapHeight = Math.floor(Config.MAP_HEIGHT * levelScale);
-        
-        // We need these classes available, assuming they are imported or handled by LevelManager/Spawner
-        // Since we moved logic to LevelManager, ideally we should use LevelManager.loadLevel here,
-        // but to keep your current structure working without rewriting LevelManager again:
-        
-        // We will use the LevelManager we created to do the heavy lifting if possible, 
-        // OR stick to the manual loading here. Let's stick to manual here for safety since we are fixing game.js.
         
         import('./ProcGen/DungeonGenerator.js').then(Module => {
             const generator = new Module.DungeonGenerator(seed, mapWidth, mapHeight);
@@ -145,7 +159,6 @@ function loadLevel() {
                 const builder = new Module.LevelBuilder(engine.scene);
                 builder.build(mapData);
                 
-                // Collect static meshes
                 levelMeshes = [];
                 engine.scene.traverse(obj => {
                     if (obj.isInstancedMesh) levelMeshes.push(obj);
@@ -153,7 +166,6 @@ function loadLevel() {
 
                 loadingUI.update(80, "SPAWNING ENTITIES...");
 
-                // Spawn
                 const entities = Spawner.spawnEntities(engine, mapData, generator, builder, audioManager);
                 player = entities.player;
                 weapon = entities.weapon;
@@ -174,15 +186,58 @@ function loadLevel() {
     }, 100);
 }
 
-// Initialize Loading
 loadLevel();
 
-// --- 5. INPUT HANDLERS ---
+// --- 5. DEATH LOGIC ---
+function triggerGameOver() {
+    isDying = true;
+    deathFallDirection = Math.floor(Math.random() * 3);
+    
+    audioManager.playSFX('player_death');
+    
+    const overlay = document.getElementById('damage-overlay');
+    if (overlay) overlay.style.opacity = '0.55'; 
+    
+    // DO NOT Unlock controls yet! 
+    // If we unlock now, the Engine throttles FPS to 10, killing the animation.
+        
+    setTimeout(() => {
+        showDeathScreen();
+    }, 2000);
+}
+
+function showDeathScreen() {
+    // Unlock controls NOW, so the user can click buttons.
+    engine.controls.unlock();
+
+    if (Config.MUSIC_DEATH) {
+        audioManager.stop(); 
+        const l = new THREE.AudioLoader();
+        l.load(Config.MUSIC_DEATH, (buffer) => {
+            audioManager.music.setBuffer(buffer);
+            audioManager.music.setLoop(true);
+            audioManager.music.setVolume(0.5);
+            audioManager.music.play();
+        });
+    }
+
+    document.getElementById('d-level').innerText = currentLevel;
+    document.getElementById('d-kills').innerText = state.data.runStats.kills;
+    document.getElementById('d-acc').innerText = state.getAccuracy();
+    document.getElementById('d-time').innerText = state.getRunTime();
+
+    document.getElementById('game-over-screen').style.display = 'flex';
+    document.body.style.cursor = 'default';
+}
+
+// --- 6. INPUT HANDLERS ---
 document.addEventListener('mousedown', (e) => {
-    if (gameActive && engine.controls.isLocked && weapon) {
+    if (gameActive && !isDying && engine.controls.isLocked && weapon) {
         if (e.button === 0) { 
             const didShoot = weapon.trigger(); 
             if (didShoot) {
+                state.recordShot(); 
+                
                 raycaster.setFromCamera(new THREE.Vector2(0, 0), engine.camera);
                 const enemyMeshes = enemies.map(e => e.mesh);
                 const allTargets = [...enemyMeshes, ...levelMeshes];
@@ -199,11 +254,15 @@ document.addEventListener('mousedown', (e) => {
                         const shootDir = engine.camera.getWorldDirection(new THREE.Vector3());
 
                         if (enemyInstance) {
+                            state.recordHit(); 
+                            
                             const damage = WeaponConfig.PISTOL_9MM.damage;
                             const died = enemyInstance.takeDamage(damage);
                             if (died) {
+                                state.recordKill(); 
                                 audioManager.playSFX('death', enemyInstance.mesh.position);
                                 enemies = enemies.filter(e => e !== enemyInstance);
+                                
                                 const gibOrigin = enemyInstance.mesh.position.clone();
                                 gibOrigin.y += 1.8; 
                                 if(debrisSystem) {
@@ -229,14 +288,16 @@ document.addEventListener('mousedown', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-    if (!gameActive || !engine.controls.isLocked) return;
+    if (!gameActive || isDying) return; 
+    if (!engine.controls.isLocked) return;
+    
     switch (e.code) {
         case 'KeyN': if(minimap) minimap.toggleRadar(); break;
         case 'KeyM': if(minimap) minimap.toggleFullMap(); break;
         case 'KeyL': if(minimap) minimap.changeZoom(-5); break; 
         case 'KeyK': if(minimap) minimap.changeZoom(5); break;
         case 'KeyR': if(weapon) weapon.reload(); break;
-        case 'KeyF': engine.toggleFlashlight(); break;
+        case 'KeyF': engine.toggleFlashlight(); break; 
         case 'KeyT': 
             const fps = document.getElementById('fps-counter');
             if(fps) fps.style.display = fps.style.display === 'none' ? 'block' : 'none';
@@ -244,38 +305,14 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// --- 6. UI EVENTS ---
+// --- 7. UI EVENTS ---
 const pauseMenu = document.getElementById('pause-menu');
 const crosshair = document.getElementById('crosshair');
-const startPrompt = document.getElementById('start-prompt');
 
 engine.controls.addEventListener('unlock', () => {
+    if (isDying) return;
+
     if (gameActive && !levelManager.isLevelFinished) {
-        // Capture screenshot of the game
-        const screenshot = engine.renderer.domElement.toDataURL();
-        console.log('Screenshot length:', screenshot.length);
-        console.log('Screenshot preview:', screenshot.substring(0, 100));
-
-
-        let img = document.getElementById('pause-background');
-        if (!img) {
-            img = document.createElement('img');
-            img.id = 'pause-background';
-            document.body.appendChild(img);
-        }
-        img.src = screenshot;
-        img.style.position = 'fixed';
-        img.style.top = '0';
-        img.style.left = '0';
-        img.style.width = '100vw';
-        img.style.height = '100vh';
-        img.style.zIndex = '2';  // Above canvas (1), below UI elements
-        img.style.pointerEvents = 'none';
-        img.style.objectFit = 'cover';
-        
-        // Hide WebGL canvas
-        engine.renderer.domElement.style.visibility = 'hidden';
-        
         pauseMenu.style.display = 'flex';
         crosshair.style.display = 'none';
         document.body.style.cursor = 'default';
@@ -283,25 +320,28 @@ engine.controls.addEventListener('unlock', () => {
 });
 
 engine.controls.addEventListener('lock', () => {
-    if (gameActive) {
-        // Remove screenshot
-        const img = document.getElementById('pause-background');
-        if (img) img.remove();
-        
-        // Show WebGL canvas
-        engine.renderer.domElement.style.visibility = 'visible';
-        
+    if (gameActive && !isDying) {
         pauseMenu.style.display = 'none';
         crosshair.style.display = 'block';
         document.body.style.cursor = 'none';
-        if (startPrompt) startPrompt.style.display = 'none';
     }
 });
-document.getElementById('btn-resume').addEventListener('click', () => engine.controls.lock());
+
+document.getElementById('btn-resume').addEventListener('click', () => {
+    if(!isDying) engine.controls.lock();
+});
 document.getElementById('btn-quit').addEventListener('click', () => window.location.href = 'index.html');
+
+document.getElementById('btn-restart').addEventListener('click', () => {
+    state.data.hp = state.data.maxHp;
+    state.reset(); 
+    window.location.href = window.location.href.split('?')[0] + '?seed=' + Math.floor(Math.random()*9999);
+});
+document.getElementById('btn-menu').addEventListener('click', () => window.location.href = 'index.html');
 
 document.body.addEventListener('click', () => {
     if (!isLevelReady) return;
+    if (isDying) return; 
 
     if (audioManager.listener.context.state === 'suspended') {
         audioManager.listener.context.resume();

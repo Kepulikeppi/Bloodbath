@@ -95,9 +95,10 @@ export const Config = {
         './assets/sounds/footstep.mp3',
         './assets/sounds/footstep.mp3'
     ],
-
     STEP_FREQUENCY: 0.5,
-	
+
+    SFX_PLAYER_DEATH: './assets/sounds/player-death.mp3',
+    MUSIC_DEATH: './assets/music/death_theme.mp3',
 	// --- TEXTURE ASSETS (NEW) ---
     // Path must end with a slash /
     TEXTURE_PATH: './assets/textures/',

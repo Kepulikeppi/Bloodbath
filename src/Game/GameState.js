@@ -37,7 +37,14 @@ export class GameState {
                 }
             },
             
-            attributes: { speedMult: 1.0, sprintMult: 1.0, staminaMax: 100 }
+            attributes: { speedMult: 1.0, sprintMult: 1.0, staminaMax: 100 },
+            //gather stats for the whole run
+            runStats: {
+                kills: 0,
+                shotsFired: 0,
+                shotsHit: 0,
+                startTime: Date.now()
+            }
         };
 
         this.load();
@@ -137,6 +144,32 @@ export class GameState {
         this.save();
         return true;
     }
+
+    recordShot() {
+        this.data.runStats.shotsFired++;
+    }
+
+    recordHit() {
+        this.data.runStats.shotsHit++;
+    }
+
+    recordKill() {
+        this.data.runStats.kills++;
+        this.addXP(10); // Bonus XP for kill
+    }
+
+    getAccuracy() {
+        if (this.data.runStats.shotsFired === 0) return "0%";
+        const acc = (this.data.runStats.shotsHit / this.data.runStats.shotsFired) * 100;
+        return acc.toFixed(1) + "%";
+    }
+
+    getRunTime() {
+        const ms = Date.now() - this.data.runStats.startTime;
+        const minutes = Math.floor(ms / 60000);
+        const seconds = ((ms % 60000) / 1000).toFixed(0);
+        return `${minutes}m ${seconds}s`;
+    }   
 }
 
 export const state = new GameState();

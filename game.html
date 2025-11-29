@@ -127,7 +127,26 @@
             </div>
         </div>
     </div>
-    
+        
+    <!-- 1. BLOOD TINT OVERLAY -->
+    <div id="damage-overlay"></div>
+
+    <!-- 2. GAME OVER MODAL -->
+    <div id="game-over-screen">
+        <h1 id="game-over-title">GAME OVER</h1>
+        
+        <div class="stat-row"><span>LEVEL REACHED:</span><span class="stat-val" id="d-level">1</span></div>
+        <div class="stat-row"><span>MONSTERS KILLED:</span><span class="stat-val" id="d-kills">0</span></div>
+        <div class="stat-row"><span>ACCURACY:</span><span class="stat-val" id="d-acc">0%</span></div>
+        <div class="stat-row"><span>TIME SURVIVED:</span><span class="stat-val" id="d-time">0m 0s</span></div>
+
+        <div class="death-buttons">
+            <button id="btn-restart">START NEW GAME</button>
+            <button id="btn-menu">EXIT TO MAIN MENU</button>
+        </div>
+    </div>
+
+  
     <!-- LEVEL COMPLETE SCREEN -->
     <div id="level-screen" style="display: none;">
         <h1>LEVEL CLEARED</h1>

@@ -840,3 +840,71 @@ input[type=range] {
     font-size: 2.2vw;
 }
 
+/* THE RED TINT (Blood Loss) */
+#damage-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    
+    /* CHANGED: 'transparent 20%' -> 'transparent 0%' 
+       This makes the red start fading in immediately from the center, 
+       rather than leaving a clear circle. */
+    background: radial-gradient(circle, transparent 0%, #600 100%);
+    
+    opacity: 0; 
+    pointer-events: none; 
+    z-index: 80;
+    transition: opacity 2s ease-in; 
+}
+
+/* GAME OVER MODAL */
+#game-over-screen {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    
+    width: 500px;
+    background: rgba(10, 0, 0, 0.95);
+    border: 3px solid #f00;
+    box-shadow: 0 0 100px #f00;
+    padding: 40px;
+    
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    z-index: 200;
+}
+
+#game-over-title {
+    font-family: 'IM Fell English SC', serif;
+    font-size: 4rem;
+    color: #f00;
+    margin: 0;
+    text-shadow: 0 0 20px #f00;
+    border-bottom: 1px solid #500;
+    width: 100%;
+    text-align: center;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-family: 'Courier New', monospace;
+    font-size: 1.2rem;
+    color: #fff;
+    border-bottom: 1px dashed #333;
+    padding: 5px 0;
+}
+.stat-val { color: #f00; font-weight: bold; }
+
+.death-buttons {
+    display: flex; gap: 20px; margin-top: 20px;
+}
+.death-buttons button {
+    background: #000; color: #f00; border: 1px solid #f00;
+    padding: 15px 30px; font-family: 'Courier New', monospace;
+    font-size: 1.2rem; cursor: pointer; transition: 0.2s;
+}
+.death-buttons button:hover { background: #f00; color: #000; }
