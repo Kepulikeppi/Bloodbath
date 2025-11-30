@@ -1,22 +1,27 @@
+import { EnemyTypes } from './game/LootManager.js';
+
 export const EnemyConfig = {
-    FLOATING_DIAMOND: {
+    WATCHER: {
         name: "Watcher",
+        // Loot System: Flesh & Blood drops
+        enemyType: EnemyTypes.BIO, 
+
         hp: 50,
         speed: 3.5,
         
         // AI Behavior
         aggroRange: 20,
-        stopDist: 1.2, // Stop slightly closer so they can hit you
-        radius: 0.4,   // Collision size
+        stopDist: 1.2, 
+        radius: 0.4,
         
         // Combat Stats
-        damage: 10,        // Health lost per hit
-        attackRange: 1.5,  // Distance required to hit
-        attackSpeed: 1.0,  // Seconds between attacks
+        damage: 10,
+        attackRange: 1.5,
+        attackSpeed: 1.0,
         
-        // Visuals
-        color: 0xff0000,
-        emissive: 0x220000,
+        // Visuals (Base colors, used if model loading fails or for flash)
+        color: 0x880000, 
+        emissive: 0x000000,
         scale: 0.5
     },
 };

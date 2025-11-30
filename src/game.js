@@ -14,15 +14,17 @@ import { HUD } from './UI/HUD.js';
 import { MusicPlayerUI } from './UI/MusicPlayerUI.js';
 import { Spawner } from './Game/Spawner.js';
 
+// Loot System
+import { LootManager } from './Game/LootManager.js';
+import { Pickup } from './Game/Pickup.js';
+
 console.log("1. Game Script Loaded");
 
 // --- 1. GET SETTINGS ---
 const urlParams = new URLSearchParams(window.location.search);
 const seed = urlParams.get('seed') || "DEFAULT";
-// Default to 1, but we will fetch the real level in loadLevel()
 let currentLevel = 1; 
 
-//Check local cache for level info first while we wait for the API
 try {
     const cached = sessionStorage.getItem('bloodbath_level_cache');
     if (cached) currentLevel = parseInt(cached);
@@ -42,6 +44,7 @@ let player = null;
 let weapon = null;
 let minimap = null;
 let enemies = []; 
+let pickups = []; // NEW: Array to hold active items
 let exitObject = null; 
 let debrisSystem = null;
 let levelMeshes = []; 
@@ -73,7 +76,7 @@ const musicUI = new MusicPlayerUI(audioManager);
 // Engine
 const engine = new Engine((delta) => {
     
-    // A. DEATH SEQUENCE ANIMATION
+    // A. DEATH SEQUENCE
     if (isDying) {
         if (engine.camera.position.y > 0.2) {
             engine.camera.position.y -= delta * 4.0; 
@@ -101,17 +104,27 @@ const engine = new Engine((delta) => {
 
         if (levelManager) levelManager.checkExit(player, exitObject);
         
+        // Update Weapon
         if (weapon) {
             const isMoving = input.keys.forward || input.keys.backward || input.keys.left || input.keys.right;
             weapon.update(delta, isMoving, engine.clock.elapsedTime);
         }
 
+        // Update Enemies
         if (enemies.length > 0 && mapData) {
              enemies.forEach(enemy => enemy.update(delta, engine.camera.position, mapData, enemies));
         }
         
+        // NEW: Update Pickups
+        if (pickups.length > 0) {
+            // Filter out picked up items (update returns true if collected)
+            pickups = pickups.filter(p => !p.update(delta, engine.camera.position));
+        }
+
+        // Update Debris
         if (debrisSystem) debrisSystem.update(delta);
 
+        // Update Minimap
         if (minimap) {
             const exitPos = exitObject ? { x: exitObject.position.x, z: exitObject.position.z } : null;
             minimap.update(engine.camera.position, exitPos);
@@ -126,26 +139,24 @@ engine.renderer.domElement.id = 'game-canvas';
 audioManager.setCamera(engine.camera); 
 const levelManager = new LevelManager(engine, currentLevel, audioManager);
 
-// --- 4. ASYNC LOADING SEQUENCE (UPDATED) ---
+// --- 4. ASYNC LOADING ---
 let mapData; 
 
 async function loadLevel() {
     state.data.runStats.startTime = Date.now(); 
     
-    // FIX 1: Fetch Real Level from Server BEFORE showing title
     try {
         const res = await fetch('api/get_status.php');
         const data = await res.json();
         if (data.active) {
             currentLevel = data.level;
-            // Also update levelManager so it knows the correct number
             if(levelManager) levelManager.currentLevel = currentLevel;
         }
     } catch(e) {
         console.warn("API Error, using default Level 1");
     }
 
-    loadingUI.setTitle(currentLevel); // Now shows correct level
+    loadingUI.setTitle(currentLevel); 
     loadingUI.update(10, "GENERATING SECTOR...");
 
     setTimeout(() => {
@@ -175,6 +186,9 @@ async function loadLevel() {
                 });
 
                 loadingUI.update(80, "SPAWNING ENTITIES...");
+
+                // Reset Pickups on level load
+                pickups = []; 
 
                 const entities = Spawner.spawnEntities(engine, mapData, generator, builder, audioManager);
                 player = entities.player;
@@ -215,7 +229,6 @@ function triggerGameOver() {
 
 function showDeathScreen() {
     engine.controls.unlock();
-
     if (Config.MUSIC_DEATH) {
         audioManager.stop(); 
         const l = new THREE.AudioLoader();
@@ -264,11 +277,23 @@ document.addEventListener('mousedown', (e) => {
                             
                             const damage = WeaponConfig.PISTOL_9MM.damage;
                             const died = enemyInstance.takeDamage(damage);
+                            
                             if (died) {
                                 state.recordKill(); 
                                 audioManager.playSFX('death', enemyInstance.mesh.position);
                                 enemies = enemies.filter(e => e !== enemyInstance);
                                 
+                                // === NEW: LOOT DROP LOGIC ===
+                                const type = enemyInstance.stats.enemyType;
+                                if (type) {
+                                    const drop = LootManager.getDrop(type);
+                                    if (drop) {
+                                        const p = new Pickup(engine.scene, drop, enemyInstance.mesh.position);
+                                        pickups.push(p);
+                                    }
+                                }
+                                // =============================
+
                                 const gibOrigin = enemyInstance.mesh.position.clone();
                                 gibOrigin.y += 1.8; 
                                 if(debrisSystem) {
@@ -311,7 +336,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// --- 7. UI EVENTS (UPDATED FOR FIX 2) ---
+// --- 7. UI EVENTS ---
 const pauseMenu = document.getElementById('pause-menu');
 const crosshair = document.getElementById('crosshair');
 
@@ -322,8 +347,6 @@ engine.controls.addEventListener('unlock', () => {
         pauseMenu.style.display = 'flex';
         crosshair.style.display = 'none';
         document.body.style.cursor = 'default';
-        
-        // FIX 2: STOP TIME to prevent physics jumps
         engine.clock.stop();
     }
 });
@@ -333,8 +356,6 @@ engine.controls.addEventListener('lock', () => {
         pauseMenu.style.display = 'none';
         crosshair.style.display = 'block';
         document.body.style.cursor = 'none';
-        
-        // FIX 2: RESUME TIME
         engine.clock.start();
     }
 });
@@ -344,16 +365,11 @@ document.getElementById('btn-resume').addEventListener('click', () => {
 });
 document.getElementById('btn-quit').addEventListener('click', () => window.location.href = 'index.html');
 
-// DEATH BUTTONS
 document.getElementById('btn-restart').addEventListener('click', () => {
-    // 1. Reset Local Client State (HP, Ammo)
     state.data.hp = state.data.maxHp;
     state.reset(); 
     sessionStorage.setItem('bloodbath_level_cache', '1');
 
-    // 2. Tell Server to Reset Run (Level 1, New Seed)
-    // Sending an empty object {} tells the backend to keep the current Name/Identity
-    // but reset everything else.
     fetch('api/new_run.php', {
         method: 'POST',
         body: JSON.stringify({}) 
@@ -361,13 +377,11 @@ document.getElementById('btn-restart').addEventListener('click', () => {
     .then(res => res.json())
     .then(data => {
         if (data.status === 'ok') {
-            // 3. Reload the page to start the new level 1
             window.location.reload();
         }
     })
     .catch(err => {
         console.error("Restart Failed", err);
-        // Fallback: Reload anyway, though server might still be on old level if fetch failed
         window.location.reload();
     });
 });

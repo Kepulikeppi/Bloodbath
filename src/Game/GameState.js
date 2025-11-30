@@ -1,5 +1,6 @@
 import { Config } from '../Config.js';
 import { WeaponConfig } from '../WeaponConfig.js';
+import { LootTypes } from '../LootConfig.js'; // We will create this next
 
 export class GameState {
     constructor() {
@@ -15,30 +16,29 @@ export class GameState {
                 '9mm': 50,
                 '44mag': 0,
                 'shells': 0,
-                'grenades': 0,
+                '762mm': 0,
+                '127mm': 0,
+                '40mm': 0,
                 'battery': 0
             },
             materials: { metal: 0, electronics: 0, microchips: 0 },
             consumables: { ragePills: 0 },
 
             // Weapons Inventory
-            // We store IDs of weapons the player has unlocked
             unlockedWeapons: ['PISTOL_9MM'], 
-            
-            // Currently selected slot (1=Melee, 2=Pistol, etc.)
             currentSlot: 2, 
 
-            // Detailed Weapon State (Upgrades & Current Mag)
+            // Detailed Weapon State
             weaponData: {
                 'PISTOL_9MM': {
                     magCurrent: 17,
-                    magSizeMod: 0, // 0 = normal, 1 = stick, 2 = drum
+                    magSizeMod: 0, 
                     isAuto: false
                 }
             },
             
             attributes: { speedMult: 1.0, sprintMult: 1.0, staminaMax: 100 },
-            //gather stats for the whole run
+            
             runStats: {
                 kills: 0,
                 shotsFired: 0,
@@ -58,7 +58,6 @@ export class GameState {
             const parsed = JSON.parse(saved);
             this.data = { ...this.data, ...parsed };
             
-            // Safety checks for backward compatibility
             if(!this.data.weaponData) this.data.weaponData = {
                 'PISTOL_9MM': { magCurrent: 17, magSizeMod: 0, isAuto: false }
             };
@@ -68,8 +67,51 @@ export class GameState {
 
     reset() { sessionStorage.removeItem('bloodbath_gamestate'); }
     
-    addXP(amount) { this.data.xp += amount; this.save(); }
+    // === LOOT & ECONOMY HELPERS ===
+
+    addXp(amount) { 
+        this.data.xp += amount; 
+        this.save(); 
+        // TODO: trigger UI update event
+    }
     
+    heal(amount) {
+        this.modifyHP(amount);
+    }
+
+    addResource(type, amount) {
+        // Map LootConfig types to internal state keys
+        switch(type) {
+            case LootTypes.SCRAP: this.data.materials.metal += amount; break;
+            case LootTypes.ELEC:  this.data.materials.electronics += amount; break;
+            case LootTypes.CHIP:  this.data.materials.microchips += amount; break;
+            case LootTypes.RAGE:  this.data.consumables.ragePills += amount; break;
+            case LootTypes.BATTERY: this.data.ammo.battery += amount; break; // Battery is treated as ammo
+        }
+        this.save();
+    }
+
+    addAmmo(lootType, amount) {
+        // Map LootTypes to internal ammo keys
+        let key = null;
+        switch(lootType) {
+            case LootTypes.AMMO_9MM:   key = '9mm'; break;
+            case LootTypes.AMMO_44:    key = '44mag'; break;
+            case LootTypes.AMMO_SHELL: key = 'shells'; break;
+            case LootTypes.AMMO_762:   key = '762mm'; break;
+            case LootTypes.AMMO_127:   key = '127mm'; break;
+            case LootTypes.AMMO_40MM:  key = '40mm'; break;
+        }
+
+        if (key) {
+            if (!this.data.ammo[key]) this.data.ammo[key] = 0;
+            this.data.ammo[key] += amount;
+            this.save();
+        }
+    }
+
+    // === EXISTING HELPERS ===
+
     modifyHP(amount) {
         this.data.hp += amount;
         if (this.data.hp > this.data.maxHp) this.data.hp = this.data.maxHp;
@@ -78,36 +120,26 @@ export class GameState {
         return this.data.hp <= 0;
     }
 
-    // --- WEAPON HELPERS ---
-
-    // FIX: Added the missing function called by HUD.js
     hasWeapon(slotIndex) {
-        // Mapping: 1=Melee, 2=Pistol, etc.
-        // In the future, you can make this dynamic based on a 'Loadout' array.
-        
         if (slotIndex === 1) return this.data.unlockedWeapons.includes('MELEE_KNIFE');
         if (slotIndex === 2) return this.data.unlockedWeapons.includes('PISTOL_9MM');
-        
         return false; 
     }
 
     getWeaponState(weaponId) {
         if (!this.data.weaponData[weaponId]) {
-            // Initialize if missing
             this.data.weaponData[weaponId] = { magCurrent: 0, magSizeMod: 0 };
         }
         return this.data.weaponData[weaponId];
     }
 
-    // Calculate max mag size based on upgrades
     getMaxMag(weaponId) {
         const state = this.getWeaponState(weaponId);
-        // Safety check if config exists
         const base = WeaponConfig[weaponId] ? WeaponConfig[weaponId].baseMagSize : 0;
         
         if (weaponId === 'PISTOL_9MM') {
-            if (state.magSizeMod === 1) return 33; // Stick
-            if (state.magSizeMod === 2) return 100; // Drum
+            if (state.magSizeMod === 1) return 33; 
+            if (state.magSizeMod === 2) return 100; 
         }
         return base;
     }
@@ -130,12 +162,11 @@ export class GameState {
         const maxMag = this.getMaxMag(weaponId);
         
         const needed = maxMag - wState.magCurrent;
-        if (needed <= 0) return false; // Full
+        if (needed <= 0) return false; 
 
         const reserve = this.data.ammo[wConfig.ammoType];
-        if (reserve <= 0) return false; // No ammo
+        if (reserve <= 0) return false; 
 
-        // Take what we need, or whatever is left
         const amountToLoad = Math.min(needed, reserve);
         
         this.data.ammo[wConfig.ammoType] -= amountToLoad;
@@ -145,17 +176,12 @@ export class GameState {
         return true;
     }
 
-    recordShot() {
-        this.data.runStats.shotsFired++;
-    }
-
-    recordHit() {
-        this.data.runStats.shotsHit++;
-    }
-
+    recordShot() { this.data.runStats.shotsFired++; }
+    recordHit() { this.data.runStats.shotsHit++; }
+    
     recordKill() {
         this.data.runStats.kills++;
-        this.addXP(10); // Bonus XP for kill
+        this.addXp(10); 
     }
 
     getAccuracy() {

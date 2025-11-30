@@ -1,17 +1,15 @@
 import { Config } from '../Config.js';
 import { Player } from './Player.js';
-// CHANGE THIS IMPORT
 import { EnemyWatcher } from './Enemies/EnemyWatcher.js'; 
 import { RangedWeapon } from './Weapons/RangedWeapon.js';
 import { WeaponConfig } from '../WeaponConfig.js';
 
 export class Spawner {
-    // ... findSafeSpawn code remains unchanged ...
     static findSafeSpawn(mapData, startRoom) {
-        // ... (Keep existing logic)
         const isFloor = (x, y) => {
             return y >= 0 && y < mapData.length && x >= 0 && x < mapData[0].length && mapData[y][x] === 0;
         };
+        
         if (startRoom) {
             const cx = startRoom.center.x;
             const cy = startRoom.center.y;
@@ -19,6 +17,7 @@ export class Spawner {
                 return { x: cx, z: cy };
             }
         }
+
         for (let y = 2; y < mapData.length - 2; y++) {
             for (let x = 2; x < mapData[0].length - 2; x++) {
                 let allFloor = true;
@@ -54,8 +53,7 @@ export class Spawner {
             generator.rooms.forEach((room) => {
                 if (room === generator.startRoom) return;
                 
-                // --- UPDATE: Use EnemyWatcher ---
-                // Note: We don't pass 'FLOATING_DIAMOND' anymore because EnemyWatcher knows its own type.
+                // Spawn WATCHER
                 const enemy = new EnemyWatcher(engine.scene, room.center.x, room.center.y, audioManager);
                 entities.enemies.push(enemy);
             });

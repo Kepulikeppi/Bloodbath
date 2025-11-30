@@ -55,8 +55,8 @@ export class Enemy {
                     child.material.emissive.setHex(0xffffff);
                     child.material.emissiveIntensity = 1.0;
                 } else {
-                    child.material.emissive.setHex(0x000000);
-                    child.material.emissiveIntensity = 0;
+                    child.material.emissive.setHex(this.stats.emissive || 0x000000);
+                    child.material.emissiveIntensity = 0.0; // Default off
                 }
             }
         });
@@ -77,8 +77,6 @@ export class Enemy {
         });
     }
 
-    // --- UPDATED UPDATE LOOP ---
-    // We now accept 'allEnemies' to check for collisions with friends
     update(delta, playerPos, mapData, allEnemies = []) {
         if (this.isDead) return;
 
@@ -91,35 +89,31 @@ export class Enemy {
         // 2. Cooldowns
         if (this.attackTimer > 0) this.attackTimer -= delta;
 
-        // 3. DISTANCE CHECK (2D ONLY)
-        // We ignore Y axis so looking up/down doesn't break logic
+        // 3. DISTANCE CHECK
         const dx = playerPos.x - this.mesh.position.x;
         const dz = playerPos.z - this.mesh.position.z;
         const dist2D = Math.sqrt(dx*dx + dz*dz);
         
         if (dist2D < this.stats.aggroRange || this.isAggro) {
             if (!this.isAggro) this.isAggro = true; 
-
             this.behavior(delta, playerPos, dist2D, mapData, allEnemies);
         }
     }
 
     behavior(delta, playerPos, dist2D, mapData, allEnemies) {
-        // A. Look at player (We can look in 3D, that's fine for visuals)
+        // A. Look at player
         this.mesh.lookAt(playerPos.x, this.mesh.position.y, playerPos.z);
 
-        // B. Move (Use 2D distance)
+        // B. Move
         if (dist2D > this.stats.stopDist) {
             const dir = new THREE.Vector3(
                 playerPos.x - this.mesh.position.x,
-                0, // Ignore Y diff for movement vector
+                0,
                 playerPos.z - this.mesh.position.z
             ).normalize();
             
-            // --- SEPARATION LOGIC (Don't stack on other enemies) ---
             const separation = this.calculateSeparation(allEnemies);
             dir.add(separation).normalize(); 
-            // -------------------------------------------------------
 
             const moveX = dir.x * this.speed * delta;
             const moveZ = dir.z * this.speed * delta;
@@ -132,17 +126,15 @@ export class Enemy {
             }
         }
 
-        // C. Attack (Use 2D distance)
-        // If we are close enough horizontally, we can bite
+        // C. Attack
         if (dist2D <= this.stats.attackRange && this.attackTimer <= 0) {
             this.attack();
         }
     }
 
-    // --- NEW: Physics for Enemy-Enemy Collision ---
     calculateSeparation(allEnemies) {
         const force = new THREE.Vector3();
-        const tooClose = 0.8; // Minimum distance between monsters
+        const tooClose = 0.8; 
 
         allEnemies.forEach(other => {
             if (other === this || other.isDead) return;
@@ -153,13 +145,11 @@ export class Enemy {
 
             if (distSq < tooClose * tooClose && distSq > 0.001) {
                 const dist = Math.sqrt(distSq);
-                // Push away! Closer = Stronger push
                 force.x += (dx / dist) / dist; 
                 force.z += (dz / dist) / dist;
             }
         });
         
-        // Weight the separation force (1.5 is moderate push)
         return force.multiplyScalar(1.5); 
     }
 
@@ -168,12 +158,8 @@ export class Enemy {
         const isDead = state.modifyHP(-this.stats.damage);
         
         if (this.audioManager) {
-            // Using a slightly randomized pitch for variety
-            // Passing 'null' position means it plays "inside head" (2D), ideal for getting hit
             this.audioManager.playSFX('hit', null); 
         }
-
-        console.log(`Player Hit! HP: ${state.data.hp}`);
         if(isDead) console.log("GAME OVER");
     }
 

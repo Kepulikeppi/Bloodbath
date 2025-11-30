@@ -4,7 +4,7 @@ import { Enemy } from '../Enemy.js';
 export class EnemyWatcher extends Enemy {
     constructor(scene, x, z, audioManager) {
         // 1. Initialize Base Class with specific config ID
-        super(scene, x, z, audioManager, 'FLOATING_DIAMOND');
+        super(scene, x, z, audioManager, 'WATCHER');
 
         // 2. Build the Model
         this.buildMesh();
@@ -61,9 +61,9 @@ export class EnemyWatcher extends Enemy {
         addEye(0.08);
     }
 
-    update(delta, playerPos, mapData) {
+    update(delta, playerPos, mapData, allEnemies = []) {
         // 1. Run Standard Logic (Aggro, Cooldowns, Movement)
-        super.update(delta, playerPos, mapData);
+        super.update(delta, playerPos, mapData, allEnemies);
 
         // 2. Run Unique Animation (Bobbing)
         if (!this.isDead) {
