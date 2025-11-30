@@ -29,7 +29,7 @@ export const LootConfig = {
     [LootTypes.XP]: { 
         name: "XP DATA", 
         color: 0x00ffff, scale: 0.4, value: 250, shape: 'OCTAHEDRON', glow: true,
-        sound: 'pickup_xp'
+        sound: 'pickup_XP'
     },
     [LootTypes.RAGE]: { 
         name: "RAGE PILL", 
@@ -51,28 +51,28 @@ export const LootConfig = {
     [LootTypes.ELEC]: { 
         name: "ELECTRONICS", 
         color: 0x0088ff, scale: 0.3, value: 1, shape: 'BOX', glow: true,
-        sound: 'pickup_tech'
+        sound: 'pickup_elec'
     },
     [LootTypes.CHIP]: { 
         name: "MICROCHIP", 
         color: 0xffaa00, scale: 0.2, value: 1, shape: 'BOX', glow: true,
-        sound: 'pickup_tech'
+        sound: 'pickup_chip'
     },
 
     // === AMMO ===
     [LootTypes.AMMO_9MM]: { 
         name: "9MM AMMO", 
         color: 0xffffaa, scale: 0.3, value: 12, shape: 'BOX', glow: false,
-        sound: 'pickup_ammo_light'
+        sound: 'pickup_ammo9mm' // Updated Key
     },
     [LootTypes.AMMO_SHELL]: { 
         name: "SHOTGUN SHELLS", 
         color: 0xff0000, scale: 0.35, value: 6, shape: 'CYLINDER', glow: false,
-        sound: 'pickup_ammo_heavy'
+        sound: 'pickup_ammo127mm' // Mapped to heavy shell sound for now
     },
     [LootTypes.AMMO_44]: { 
         name: ".44 MAGNUM AMMO", 
         color: 0xcccccc, scale: 0.3, value: 6, shape: 'BOX', glow: false,
-        sound: 'pickup_ammo_heavy'
+        sound: 'pickup_ammo44' // Updated Key
     },
 };

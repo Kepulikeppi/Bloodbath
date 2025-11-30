@@ -49,7 +49,6 @@ export class AudioManager {
         const SFX = AudioConfig.SFX;
 
         // === 1. WEAPONS (Refactored) ===
-        // Iterates through 'PISTOL_9MM', 'PISTOL_44', etc.
         if (SFX.WEAPONS) {
             for (const [weaponId, sounds] of Object.entries(SFX.WEAPONS)) {
                 if (sounds.SHOOT)  load(`${weaponId}_SHOOT`, sounds.SHOOT);
@@ -74,22 +73,24 @@ export class AudioManager {
         // === 3. ENTITIES ===
         if (SFX.HIT) load('hit', SFX.HIT);
         if (SFX.MONSTER_DEATH) load('death', SFX.MONSTER_DEATH);
-        if (SFX.PLAYER_DEATH) load('player_death', SFX.PLAYER_DEATH); // Ensure key matches usage
+        if (SFX.PLAYER_DEATH) load('player_death', SFX.PLAYER_DEATH);
         
-        // === 4. LOOT ===
-        // Maps Config keys to the IDs used in LootConfig.js
+        // === 4. LOOT (UPDATED TO MATCH AUDIOCONFIG KEYS) ===
         if (SFX.LOOT) {
             const L = SFX.LOOT;
+            // General
             if (L.HEALTH)     load('pickup_health', L.HEALTH);
-            if (L.AMMO_9MM)   load('pickup_ammo9mm', L.AMMO_9MM);
-            if (L.AMMO_44)    load('pickup_ammo44', L.AMMO_44);
-            if (L.AMMO_762)   load('pickup_ammo762', L.AMMO_762);
-            if (L.AMMO_127MM) load('pickup_ammo127mm', L.AMMO_127MM);
             if (L.METAL)      load('pickup_metal', L.METAL);
             if (L.ELEC)       load('pickup_elec', L.ELEC);
             if (L.CHIP)       load('pickup_chip', L.CHIP);
             if (L.PILLS)      load('pickup_pills', L.PILLS);
             if (L.XP)         load('pickup_XP', L.XP);
+
+            // Specific Ammo Types (Must match keys in LootConfig.js)
+            if (L.AMMO_9MM)   load('pickup_ammo9mm', L.AMMO_9MM);
+            if (L.AMMO_44)    load('pickup_ammo44', L.AMMO_44);
+            if (L.AMMO_762)   load('pickup_ammo762', L.AMMO_762);
+            if (L.AMMO_127MM) load('pickup_ammo127mm', L.AMMO_127MM);
         }
     }
 
@@ -140,8 +141,10 @@ export class AudioManager {
         this.playSFX(`step${randIndex}`);
     }
 
-    // ... (Playlist methods remain unchanged)
-    setPlaylist(paths) { this.playlist = paths; this.currentTrackIndex = 0; }
+    setPlaylist(paths) {
+        this.playlist = paths;
+        this.currentTrackIndex = 0;
+    }
 
     play() {
         if (this.playlist.length === 0) return;
