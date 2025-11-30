@@ -123,7 +123,6 @@ const engine = new Engine((delta) => {
         
         // Update Pickups
         if (pickups.length > 0) {
-            // Filter out picked up items (update returns true if collected)
             pickups = pickups.filter(p => !p.update(delta, engine.camera.position));
         }
 
@@ -149,7 +148,8 @@ const levelManager = new LevelManager(engine, currentLevel, audioManager);
 let mapData; 
 
 async function loadLevel() {
-    state.data.runStats.startTime = Date.now(); 
+    // FIX: Removed the line that reset runStats.startTime to Date.now() here.
+    // The start time is now handled exclusively by GameState initialization/loading.
     
     try {
         const res = await fetch('api/get_status.php');
@@ -417,7 +417,6 @@ document.body.addEventListener('click', () => {
     }
 });
 
-// LISTEN FOR LOOT
 window.addEventListener('loot-pickup', (e) => {
     const data = e.detail;
     
@@ -426,8 +425,6 @@ window.addEventListener('loot-pickup', (e) => {
 
     // 2. Play Sound
     if (data.sound) {
-
-        
         audioManager.playSFX(data.sound);
     }
 });

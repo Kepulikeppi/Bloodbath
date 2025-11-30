@@ -100,14 +100,16 @@
 /* === MESSAGE LOG (Loot Feed) === */
 #message-log {
     position: absolute;
-    bottom: 20%;      /* Positioned above the HUD */
-    right: 20px;      /* Aligned to the right, near weapon/map */
-    width: 300px;
+    bottom: 15%;      /* Moved slightly down to sit just above Vitals */
+    left: 50%;        /* Center horizontally */
+    transform: translateX(-50%);
+    width: 600px;     /* Wide enough for long item names */
     display: flex;
     flex-direction: column;
-    align-items: flex-end; /* Right align text */
+    align-items: center; /* Center text alignment */
     pointer-events: none;
     z-index: 50;
+    text-align: center;
 }
 
 .log-msg {
@@ -116,11 +118,11 @@
     font-size: 1.2rem;
     margin-top: 5px;
     opacity: 0;
-    animation: fadeLog 1s forwards; /* 0.5s hold + 0.5s fade handled in keyframes */
+    animation: fadeLog 1s forwards; 
 }
 
 @keyframes fadeLog {
     0% { opacity: 1; transform: translateY(0); }
-    50% { opacity: 1; transform: translateY(0); } /* Hold visible */
-    100% { opacity: 0; transform: translateY(-20px); } /* Fade out and float up */
+    50% { opacity: 1; transform: translateY(0); } 
+    100% { opacity: 0; transform: translateY(-20px); } 
 }
