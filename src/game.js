@@ -18,6 +18,9 @@ import { Spawner } from './Game/Spawner.js';
 import { LootManager } from './Game/LootManager.js';
 import { Pickup } from './Game/Pickup.js';
 
+// Message box
+import { MessageLog } from './UI/MessageLog.js';
+
 console.log("1. Game Script Loaded");
 
 // --- 1. GET SETTINGS ---
@@ -72,6 +75,7 @@ if(Config.SFX_PLAYER_DEATH) {
 state.load();
 const hud = new HUD();
 const musicUI = new MusicPlayerUI(audioManager);
+const messageLog = new MessageLog();
 
 // Engine
 const engine = new Engine((delta) => {
@@ -409,6 +413,19 @@ document.body.addEventListener('click', () => {
 
     if (gameActive && !engine.controls.isLocked && pauseMenu.style.display === 'none') {
         engine.controls.lock();
+    }
+});
+
+window.addEventListener('loot-pickup', (e) => {
+    const data = e.detail;
+    
+    // 1. UI Message
+    messageLog.add(`${data.name} (+${data.value})`, data.color);
+
+    // 2. Play Sound
+    if (data.sound) {
+        // Check if the sound buffer exists before trying to play
+        audioManager.playSFX(data.sound);
     }
 });
 

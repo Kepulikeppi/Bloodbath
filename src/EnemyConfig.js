@@ -1,4 +1,4 @@
-import { EnemyTypes } from './game/LootManager.js';
+import { EnemyTypes } from './Game/LootManager.js';
 
 export const EnemyConfig = {
     WATCHER: {

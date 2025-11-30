@@ -1,5 +1,7 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Config } from '../Config.js';
+import { AudioConfig } from '../AudioConfig.js';
+import { MusicConfig } from '../MusicConfig.js';
 
 export class AudioManager {
     constructor() {

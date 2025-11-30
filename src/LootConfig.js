@@ -1,18 +1,16 @@
-// src/LootConfig.js
-
 export const LootTypes = {
     // === CONSUMABLES ===
     HEALTH: 'HEALTH',
-    XP: 'XP', // Rare map spawn
+    XP: 'XP',
     RAGE: 'RAGE',
     BATTERY: 'BATTERY',
 
-    // === MATERIALS (Mech Drops) ===
+    // === MATERIALS ===
     SCRAP: 'SCRAP',
     ELEC: 'ELEC',
     CHIP: 'CHIP',
 
-    // === AMMO (Bio Drops) ===
+    // === AMMO ===
     AMMO_9MM: 'AMMO_9MM',
     AMMO_44: 'AMMO_44',
     AMMO_SHELL: 'AMMO_SHELL',
@@ -22,29 +20,59 @@ export const LootTypes = {
 };
 
 export const LootConfig = {
-    // Green Box with Glow
-    [LootTypes.HEALTH]: { color: 0x00ff00, scale: 0.5, value: 25, shape: 'BOX', glow: true },
-    
-    // Cyan Octahedron
-    [LootTypes.XP]:     { color: 0x00ffff, scale: 0.4, value: 250, shape: 'OCTAHEDRON', glow: true },
-    
-    // Pink Sphere
-    [LootTypes.RAGE]:   { color: 0xff00aa, scale: 0.3, value: 1, shape: 'SPHERE', glow: true },
-    
-    // Yellow Cylinder
-    [LootTypes.BATTERY]:{ color: 0xffff00, scale: 0.4, value: 1, shape: 'CYLINDER', glow: false },
+    // === CONSUMABLES ===
+    [LootTypes.HEALTH]: { 
+        name: "MEDKIT", 
+        color: 0x00ff00, scale: 0.5, value: 25, shape: 'BOX', glow: true, 
+        sound: 'pickup_health' 
+    },
+    [LootTypes.XP]: { 
+        name: "XP DATA", 
+        color: 0x00ffff, scale: 0.4, value: 250, shape: 'OCTAHEDRON', glow: true,
+        sound: 'pickup_xp'
+    },
+    [LootTypes.RAGE]: { 
+        name: "RAGE PILL", 
+        color: 0xff00aa, scale: 0.3, value: 1, shape: 'SPHERE', glow: true,
+        sound: 'pickup_pills'
+    },
+    [LootTypes.BATTERY]: { 
+        name: "HEAVY BATTERY", 
+        color: 0xffff00, scale: 0.4, value: 1, shape: 'CYLINDER', glow: false,
+        sound: 'pickup_metal'
+    },
 
-    // Grey Tetrahedron
-    [LootTypes.SCRAP]:  { color: 0xaaaaaa, scale: 0.3, value: 5, shape: 'TETRAHEDRON', glow: false },
-    
-    // Blue small box
-    [LootTypes.ELEC]:   { color: 0x0088ff, scale: 0.3, value: 1, shape: 'BOX', glow: true },
-    
-    // Orange small chip
-    [LootTypes.CHIP]:   { color: 0xffaa00, scale: 0.2, value: 1, shape: 'BOX', glow: true },
+    // === MATERIALS ===
+    [LootTypes.SCRAP]: { 
+        name: "METAL SCRAP", 
+        color: 0xaaaaaa, scale: 0.3, value: 5, shape: 'TETRAHEDRON', glow: false,
+        sound: 'pickup_metal'
+    },
+    [LootTypes.ELEC]: { 
+        name: "ELECTRONICS", 
+        color: 0x0088ff, scale: 0.3, value: 1, shape: 'BOX', glow: true,
+        sound: 'pickup_tech'
+    },
+    [LootTypes.CHIP]: { 
+        name: "MICROCHIP", 
+        color: 0xffaa00, scale: 0.2, value: 1, shape: 'BOX', glow: true,
+        sound: 'pickup_tech'
+    },
 
-    // Ammo Types (Yellow-ish for standard, Red for shotgun)
-    [LootTypes.AMMO_9MM]: { color: 0xffffaa, scale: 0.3, value: 12, shape: 'BOX', glow: false },
-    [LootTypes.AMMO_SHELL]: { color: 0xff0000, scale: 0.35, value: 6, shape: 'CYLINDER', glow: false },
-    [LootTypes.AMMO_44]: { color: 0xcccccc, scale: 0.3, value: 6, shape: 'BOX', glow: false },
+    // === AMMO ===
+    [LootTypes.AMMO_9MM]: { 
+        name: "9MM AMMO", 
+        color: 0xffffaa, scale: 0.3, value: 12, shape: 'BOX', glow: false,
+        sound: 'pickup_ammo_light'
+    },
+    [LootTypes.AMMO_SHELL]: { 
+        name: "SHOTGUN SHELLS", 
+        color: 0xff0000, scale: 0.35, value: 6, shape: 'CYLINDER', glow: false,
+        sound: 'pickup_ammo_heavy'
+    },
+    [LootTypes.AMMO_44]: { 
+        name: ".44 MAGNUM AMMO", 
+        color: 0xcccccc, scale: 0.3, value: 6, shape: 'BOX', glow: false,
+        sound: 'pickup_ammo_heavy'
+    },
 };

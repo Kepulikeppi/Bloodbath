@@ -96,3 +96,31 @@
     font-weight: bold; font-size: 1rem; background: rgba(0, 0, 0, 0.5);
     padding: 5px 10px; border: 1px solid #0f0;
 }
+
+/* === MESSAGE LOG (Loot Feed) === */
+#message-log {
+    position: absolute;
+    bottom: 20%;      /* Positioned above the HUD */
+    right: 20px;      /* Aligned to the right, near weapon/map */
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Right align text */
+    pointer-events: none;
+    z-index: 50;
+}
+
+.log-msg {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-top: 5px;
+    opacity: 0;
+    animation: fadeLog 1s forwards; /* 0.5s hold + 0.5s fade handled in keyframes */
+}
+
+@keyframes fadeLog {
+    0% { opacity: 1; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(0); } /* Hold visible */
+    100% { opacity: 0; transform: translateY(-20px); } /* Fade out and float up */
+}

@@ -4,13 +4,16 @@ import { state } from './GameState.js';
 
 export class Pickup {
     constructor(scene, type, position) {
+        // ... (constructor remains the same)
         this.scene = scene;
         this.type = type;
-        this.config = LootConfig[type] || LootConfig[LootTypes.SCRAP]; // Fallback
+        this.config = LootConfig[type] || LootConfig[LootTypes.SCRAP]; 
         this.isActive = true;
-        this.time = Math.random() * 100; // Random start for float animation
+        this.time = Math.random() * 100;
 
-        // Create Mesh
+        // ... (geometry creation remains the same)
+        
+        // Ensure glow config matches new structure if needed
         const geometry = this.getGeometry(this.config.shape);
         const material = new THREE.MeshStandardMaterial({ 
             color: this.config.color,
@@ -22,10 +25,9 @@ export class Pickup {
 
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.position.copy(position);
-        this.mesh.position.y += 0.5; // Float above ground
+        this.mesh.position.y += 0.5; 
         this.mesh.scale.setScalar(this.config.scale);
         
-        // Add simple shadow blob or light
         if (this.config.glow) {
             this.light = new THREE.PointLight(this.config.color, 1, 3);
             this.light.position.y = 0.2;
@@ -49,19 +51,15 @@ export class Pickup {
     update(delta, playerPos) {
         if (!this.isActive) return false;
 
-        // 1. Animation (Float & Spin)
         this.time += delta;
         this.mesh.rotation.y += delta;
         this.mesh.position.y = 0.5 + Math.sin(this.time * 2.5) * 0.15;
         this.mesh.rotation.z = Math.sin(this.time) * 0.1;
 
-        // 2. Collision Check (Simple Distance)
         const dist = this.mesh.position.distanceTo(playerPos);
-        
-        // Pickup Radius: 1.5 units
         if (dist < 1.5) {
             this.collect();
-            return true; // Indicates it was collected
+            return true; 
         }
         return false;
     }
@@ -69,23 +67,17 @@ export class Pickup {
     collect() {
         this.isActive = false;
         this.scene.remove(this.mesh);
-        
-        // Cleanup Light
         if (this.light) {
             this.mesh.remove(this.light);
             this.light.dispose();
         }
         
-        // Apply Effect
+        // 1. Update Game State
         const amount = this.config.value;
         const currentType = this.type;
         
-        if (currentType === LootTypes.HEALTH) {
-            state.heal(amount);
-        } 
-        else if (currentType === LootTypes.XP) {
-            state.addXp(amount);
-        } 
+        if (currentType === LootTypes.HEALTH) state.heal(amount);
+        else if (currentType === LootTypes.XP) state.addXp(amount);
         else if (currentType === LootTypes.SCRAP || 
                  currentType === LootTypes.ELEC || 
                  currentType === LootTypes.CHIP || 
@@ -94,11 +86,18 @@ export class Pickup {
             state.addResource(currentType, amount);
         } 
         else {
-            // Assume Ammo if none of the above matches
             state.addAmmo(currentType, amount);
         }
 
-        console.log(`[Pickup] Collected ${currentType} (+${amount})`);
-        // TODO: Play Sound here (passed via constructor or global audio)
+        // 2. Dispatch Event for UI and Audio
+        window.dispatchEvent(new CustomEvent('loot-pickup', { 
+            detail: { 
+                type: this.type,
+                name: this.config.name,
+                value: amount,
+                color: this.config.color,
+                sound: this.config.sound
+            } 
+        }));
     }
 }
