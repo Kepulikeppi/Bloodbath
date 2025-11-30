@@ -9,10 +9,11 @@
 - 40mm grenade (for a launcher)
 
 #Ammunition drop sizes
-- small (one full magazine/belt)
-- medium (three full magazines/belts)
-- large (ten full magazines/belts)
-- epic (thirty full magazines/belts)
+- tiny (3 to 5 rounds)
+- small (one full magazine ~20 rounds)
+- medium (three full magazines ~40 rounds)
+- large (ten full magazines ~200 rounds)
+- epic (thirty full magazines ~600 rounds)
 
 #Boosts/consumables 
 - health packs
