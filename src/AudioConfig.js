@@ -5,14 +5,23 @@ export const AudioConfig = {
     SMOOTHING: 0.6, 
     MIN_DB: -80, 
     MAX_DB: -20,
-    MAX_DIST: 50, // 3D rolloff distance
+    MAX_DIST: 50, 
 
     // --- SOUND EFFECTS ---
     SFX: {
-        // Weapons
-        PISTOL: './assets/sounds/pistol.mp3',
-        RELOAD: './assets/sounds/pistol-reload.mp3',
-        EMPTY: './assets/sounds/pistol-empty-click.mp3',
+        // WEAPONS: Organized by Weapon ID
+        WEAPONS: {
+            'PISTOL_9MM': {
+                SHOOT: './assets/sounds/pistol.mp3',
+                RELOAD: './assets/sounds/pistol-reload.mp3',
+                EMPTY: './assets/sounds/pistol-empty-click.mp3'
+            },
+            'PISTOL_44': {
+                SHOOT: './assets/sounds/pistol_44.mp3', 
+                RELOAD: './assets/sounds/pistol_44_reload.mp3',
+                EMPTY: './assets/sounds/pistol-empty-click.mp3' 
+            }
+        },
         
         // Environment
         AMBIENCE: './assets/sounds/ambience2.mp3', 
@@ -30,18 +39,18 @@ export const AudioConfig = {
         ],
         STEP_FREQUENCY: 0.5,
 
-        // Loot (Placeholders for your new files)
+        // Loot (Updated with your list)
         LOOT: {
-            HEALTH: './assets/sfx/pickup_health.mp3',
-            AMMO_9MM: './assets/sfx/pickup_ammo9mm.mp3',
-            AMMO_44: './assets/sfx/pickup_ammo44.mp3',
-            AMMO_762: './assets/sfx/pickup_ammo762.mp3',
-            AMMO_127MM: './assets/sfx/pickup_ammo127mm.mp3',
-            METAL: './assets/sfx/pickup_metal.mp3',
-            ELEC: './assets/sfx/pickup_elec.mp3',
-            CHIP: './assets/sfx/pickup_chip.mp3',
-            PILLS: './assets/sfx/pill_rattle.mp3',
-            XP: './assets/sfx/xp_gain.mp3'
+            HEALTH: './assets/sounds/pickup_health.mp3',
+            AMMO_9MM: './assets/sounds/pickup_ammo9mm.mp3',
+            AMMO_44: './assets/sounds/pickup_ammo44.mp3',
+            AMMO_762: './assets/sounds/pickup_ammo762.mp3',
+            AMMO_127MM: './assets/sounds/pickup_ammo127mm.mp3',
+            METAL: './assets/sounds/pickup_metal.mp3',
+            ELEC: './assets/sounds/pickup_elec.mp3',
+            CHIP: './assets/sounds/pickup_chip.mp3',
+            PILLS: './assets/sounds/pickup_pills.mp3',
+            XP: './assets/sounds/pickup_XP.mp3'
         }
     }
 };

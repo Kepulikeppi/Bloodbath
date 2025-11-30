@@ -8,7 +8,7 @@ export class AudioManager {
         this.listener = new THREE.AudioListener();
         this.music = new THREE.Audio(this.listener);
         
-        // --- ANALYSER CONFIGURATION (Loaded from AudioConfig) ---
+        // --- ANALYSER CONFIGURATION ---
         this.analyser = new THREE.AudioAnalyser(this.music, AudioConfig.FFT_SIZE); 
         this.analyser.analyser.smoothingTimeConstant = AudioConfig.SMOOTHING;
         this.analyser.analyser.minDecibels = AudioConfig.MIN_DB;
@@ -16,8 +16,6 @@ export class AudioManager {
 
         this.loader = new THREE.AudioLoader();
         this.ambience = new THREE.Audio(this.listener);
-        
-        // Use Config for initial volume
         this.ambience.setVolume(AudioConfig.DEFAULT_VOL); 
 
         this.sfxBuffers = {};
@@ -27,7 +25,6 @@ export class AudioManager {
         this.currentTrackIndex = 0;
         this.isPlaying = false;
         
-        // Use Config for initial music volume
         this.musicVolume = AudioConfig.DEFAULT_VOL;
         this.music.setVolume(this.musicVolume);
         
@@ -51,38 +48,48 @@ export class AudioManager {
 
         const SFX = AudioConfig.SFX;
 
-        // Weapons
-        if (SFX.PISTOL) load('pistol', SFX.PISTOL);
-        if (SFX.RELOAD) load('reload', SFX.RELOAD);
-        if (SFX.EMPTY) load('empty', SFX.EMPTY);
+        // === 1. WEAPONS (Refactored) ===
+        // Iterates through 'PISTOL_9MM', 'PISTOL_44', etc.
+        if (SFX.WEAPONS) {
+            for (const [weaponId, sounds] of Object.entries(SFX.WEAPONS)) {
+                if (sounds.SHOOT)  load(`${weaponId}_SHOOT`, sounds.SHOOT);
+                if (sounds.RELOAD) load(`${weaponId}_RELOAD`, sounds.RELOAD);
+                if (sounds.EMPTY)  load(`${weaponId}_EMPTY`, sounds.EMPTY);
+            }
+        }
         
-        // Steps
+        // === 2. ENVIRONMENT ===
         if (SFX.STEPS) {
             SFX.STEPS.forEach((path, index) => load(`step${index}`, path));
         }
 
-        // Ambience
         if (SFX.AMBIENCE) {
             this.loader.load(SFX.AMBIENCE, (buffer) => {
                 this.ambience.setBuffer(buffer);
                 this.ambience.setLoop(true);
-                this.ambience.setVolume(AudioConfig.DEFAULT_VOL); // Use Config
+                this.ambience.setVolume(AudioConfig.DEFAULT_VOL); 
             }, undefined, (err) => console.warn("Ambience Missing"));
         }
 
-        // Combat
+        // === 3. ENTITIES ===
         if (SFX.HIT) load('hit', SFX.HIT);
-        if (SFX.MONSTER_DEATH) load('death', SFX.MONSTER_DEATH); 
+        if (SFX.MONSTER_DEATH) load('death', SFX.MONSTER_DEATH);
+        if (SFX.PLAYER_DEATH) load('player_death', SFX.PLAYER_DEATH); // Ensure key matches usage
         
-        // Loot Sounds
+        // === 4. LOOT ===
+        // Maps Config keys to the IDs used in LootConfig.js
         if (SFX.LOOT) {
-            if (SFX.LOOT.HEALTH)     load('pickup_health', SFX.LOOT.HEALTH);
-            if (SFX.LOOT.AMMO_LIGHT) load('pickup_ammo_light', SFX.LOOT.AMMO_LIGHT);
-            if (SFX.LOOT.AMMO_HEAVY) load('pickup_ammo_heavy', SFX.LOOT.AMMO_HEAVY);
-            if (SFX.LOOT.METAL)      load('pickup_metal', SFX.LOOT.METAL);
-            if (SFX.LOOT.TECH)       load('pickup_tech', SFX.LOOT.TECH);
-            if (SFX.LOOT.PILLS)      load('pickup_pills', SFX.LOOT.PILLS);
-            if (SFX.LOOT.XP)         load('pickup_xp', SFX.LOOT.XP);
+            const L = SFX.LOOT;
+            if (L.HEALTH)     load('pickup_health', L.HEALTH);
+            if (L.AMMO_9MM)   load('pickup_ammo9mm', L.AMMO_9MM);
+            if (L.AMMO_44)    load('pickup_ammo44', L.AMMO_44);
+            if (L.AMMO_762)   load('pickup_ammo762', L.AMMO_762);
+            if (L.AMMO_127MM) load('pickup_ammo127mm', L.AMMO_127MM);
+            if (L.METAL)      load('pickup_metal', L.METAL);
+            if (L.ELEC)       load('pickup_elec', L.ELEC);
+            if (L.CHIP)       load('pickup_chip', L.CHIP);
+            if (L.PILLS)      load('pickup_pills', L.PILLS);
+            if (L.XP)         load('pickup_XP', L.XP);
         }
     }
 
@@ -93,7 +100,10 @@ export class AudioManager {
     }
 
     playSFX(name, position = null) {
-        if (!this.sfxBuffers[name]) return; 
+        if (!this.sfxBuffers[name]) {
+            // console.warn(`SFX not found: ${name}`);
+            return; 
+        }
 
         const sound = new THREE.Audio(this.listener);
         sound.setBuffer(this.sfxBuffers[name]);
@@ -101,14 +111,12 @@ export class AudioManager {
         const detune = 1.0 + (Math.random() * 0.2 - 0.1);
         sound.setPlaybackRate(detune);
         
-        // Base Volume logic could also be moved to config later if needed, 
-        // but relative mixing is usually logic-dependent.
         let vol = name.includes('step') ? 0.3 : 0.8;
 
         // --- DISTANCE ATTENUATION ---
         if (position && this.camera) {
             const dist = this.camera.position.distanceTo(position);
-            const maxDist = AudioConfig.MAX_DIST; // Use Config
+            const maxDist = AudioConfig.MAX_DIST; 
             
             let factor = 1 - (dist / maxDist);
             if (factor < 0) factor = 0;
@@ -132,10 +140,8 @@ export class AudioManager {
         this.playSFX(`step${randIndex}`);
     }
 
-    setPlaylist(paths) {
-        this.playlist = paths;
-        this.currentTrackIndex = 0;
-    }
+    // ... (Playlist methods remain unchanged)
+    setPlaylist(paths) { this.playlist = paths; this.currentTrackIndex = 0; }
 
     play() {
         if (this.playlist.length === 0) return;
@@ -146,8 +152,7 @@ export class AudioManager {
             this.music.play();
             this.isPlaying = true;
             const currentPath = this.playlist[this.currentTrackIndex];
-            const event = new CustomEvent('trackchange', { detail: currentPath });
-            window.dispatchEvent(event);
+            window.dispatchEvent(new CustomEvent('trackchange', { detail: currentPath }));
             return;
         }
         if (this.isPlaying) return;
@@ -181,8 +186,7 @@ export class AudioManager {
 
             this.music.play();
             this.isPlaying = true;
-            const event = new CustomEvent('trackchange', { detail: path });
-            window.dispatchEvent(event);
+            window.dispatchEvent(new CustomEvent('trackchange', { detail: path }));
         });
     }
 
