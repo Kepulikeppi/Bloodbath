@@ -38,7 +38,7 @@
 - 40mm grenade launcher
 - electronic stun gun (allows hacking mechanical enemies to make them an ally)
 
-#Melee weapons (unlocks a weapon)
+#Melee weapon drops (unlocks a weapon)
 - Nordic shortsword
 - birch log
 - handheld circular saw
