@@ -19,22 +19,17 @@
     <link rel="stylesheet" href="css/core.css">
     <link rel="stylesheet" href="css/menu.css">
     <link rel="stylesheet" href="css/music.css">
-
-  
 </head>
 <body>
 
     <!-- Background Image -->
     <img id="menu-bg" src="./assets/background2.jpg" alt="Background">
 
-       
-	<!-- Splash Screen -->
+    <!-- Splash Screen -->
     <div id="splash-screen">
-        <!-- Standard PC Text -->
         <div id="splash-text">+ CLICK TO INITIALIZE +</div>
 		<div id="splash-subtext">(Attention: this website will play audio)</div>
 
-        <!-- Mobile Warning (Hidden by default) -->
         <div id="mobile-warning" style="display: none;">
             <h2>⚠ WARNING ⚠</h2>
             <p>MOBILE DEVICE DETECTED</p>
@@ -42,8 +37,6 @@
             <button id="mobile-continue-btn"> UNDERSTOOD. CONTINUE </button>
         </div>
     </div>
-
-  
 
     <!-- Sidebar UI -->
     <div id="ui-layer">
@@ -60,9 +53,7 @@
                 <button id="start-btn">NEW GAME</button>
                 <button id="session-btn">SESSION</button>
 				<button id="credits-btn">CREDITS</button>
-				  
             </div>
-			
         </div>
 
         <!-- Music Player -->
@@ -73,32 +64,25 @@
                 <div class="scrolling-text" id="track-name">Standby mode</div>
             </div>
 
-            <!-- This row holds buttons AND volume side-by-side -->
             <div class="controls-row">
-                
-                <!-- Just the buttons here -->
                 <div style="display: flex; gap: 5px;">
                     <button id="btn-stop">■</button>
                     <button id="btn-play">▶</button>
                     <button id="btn-next">>></button>
                 </div>
-
-                <!-- Volume on the right -->
                 <div class="vol-group">
                     <input type="range" id="vol-music" min="0" max="1" step="0.1" value="0.5">
                 </div>
             </div>
         </div>
-
     </div>
+
 	<div id="credits-overlay" style="display: none;">
         <div class="credits-box">
             <h2>// CREDITS //</h2>
-            
             <div class="credits-content">
                 <h3>DESIGN AND PROGRAMMING</h3>
                 <p>Kepulikeppi</p>
-                
                 <h3>MUSIC</h3>
                 <p>Kepulikeppi</p>
                 <ul class="credit-list">
@@ -107,16 +91,12 @@
                     <li>Bloodthirsty Clown</li>
                     <li>Welcome to Hell</li>
                 </ul>
-
                 <h3>TEXTURE PACKS</h3>
                 <p>AmbientCG.com (Creative Commons Zero)</p>
-                
                 <h3>SOUND EFFECTS</h3>
                 <p>Freesound.org (Creative Commons Zero)</p>
                 <p>Pixabay.com (Creative Commons Zero)</p>
-                
             </div>
-
             <button id="credits-close-btn">[ CLOSE ]</button>
         </div>
     </div>
@@ -125,12 +105,10 @@
     <div id="session-overlay" style="display: none;">
         <div class="session-box">
             <h2>SESSION NAME</h2>
-            <p>Enter a name (A-Z, 0-9)</p>
-            <p>Naming your session keeps it alive for up to 24 hours. This saves your in-game progess.</p>
-            <p></p>
-            <p>The game will not save any personal information. The session is identified by a randomly generated ID</p>
-            <p>The session will be deleted when the browser is closed, or when the browser cache is cleared</p>
-            <input type="text" id="session-input" maxlength="15" placeholder="Friendly name..." autocomplete="off">
+            <p>Naming your session keeps it alive for up to 24 hours. This saves your in-game progess. The default session won't save any progress.</p>
+            <p>The game will not gather or save any personal information. The session is identified by a randomly generated ID.</p>
+            <p>The session will be deleted when the browser is closed, or when the browser cache is cleared. You can also delete the session manually by clicking on the "reset" link next to the session name.</p>
+            <input type="text" id="session-input" maxlength="15" placeholder="Enter a name..." autocomplete="off">
             
             <div class="session-buttons">
                 <button id="btn-confirm-session">SAVE</button>
@@ -139,6 +117,18 @@
         </div>
     </div>
 
+    <!-- [NEW] GENERIC CONFIRMATION MODAL -->
+    <div id="confirmation-overlay" style="display: none;">
+        <div class="confirmation-box">
+            <h2 id="confirm-title">WARNING</h2>
+            <p id="confirm-message">ARE YOU SURE?</p>
+            
+            <div class="session-buttons">
+                <button id="btn-confirm-yes">YES</button>
+                <button id="btn-confirm-no">NO</button>
+            </div>
+        </div>
+    </div>
   
     <!-- Load ONLY Menu Logic -->
     <script type="module" src="./src/menu.js"></script>

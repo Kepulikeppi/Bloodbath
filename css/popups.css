@@ -59,6 +59,18 @@
 .stats-box p { color: #fff; font-family: 'Courier New', monospace; font-size: 1.5rem; margin: 10px 0; }
 .stats-box span { color: #0f0; font-weight: bold; }
 
+/* [FIX] Green styling for the Level Complete button (Overrides core.css) */
+#btn-next-level {
+    border-color: #0f0;
+    color: #0f0;
+}
+#btn-next-level:hover {
+    background: #0f0; 
+    color: #000; 
+    box-shadow: 0 0 20px #0f0;
+    padding-left: 25px; /* Keep the slide effect */
+}
+
 /* === LOADING SCREEN === */
 #loading-screen {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;

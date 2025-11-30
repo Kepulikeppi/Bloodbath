@@ -52,8 +52,9 @@ button.wireframe-btn,
     box-sizing: border-box;
 }
 
+/* [FIX] Added #continue-btn:hover to this list */
 #start-btn:hover, #credits-btn:hover, #session-btn:hover,
-#btn-next-level:hover, #btn-restart:hover, #btn-menu:hover { 
+#btn-next-level:hover, #btn-restart:hover, #btn-menu:hover, #continue-btn:hover { 
     background: #f00; 
     color: #000; 
     box-shadow: 0 0 15px #f00; 

@@ -156,11 +156,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionBtn = document.getElementById('session-btn');   // "SESSION"
     const btnLogout = document.getElementById('btn-logout');     // "[ RESET ]"
 
-    // Modal Elements
+    // Session Modal Elements
     const sessionOverlay = document.getElementById('session-overlay');
     const sessionInput = document.getElementById('session-input');
     const btnConfirm = document.getElementById('btn-confirm-session');
     const btnCancel = document.getElementById('btn-cancel-session');
+
+    // Confirmation Modal Elements
+    const confirmOverlay = document.getElementById('confirmation-overlay');
+    const confirmTitle = document.getElementById('confirm-title');
+    const confirmMsg = document.getElementById('confirm-message');
+    const btnConfirmYes = document.getElementById('btn-confirm-yes');
+    const btnConfirmNo = document.getElementById('btn-confirm-no');
     
     // Credits Elements
     const creditsBtn = document.getElementById('credits-btn');
@@ -169,6 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isNamedSession = false;
     let currentSessionName = "DEFAULT";
+    let currentSessionLevel = 1; 
+    let pendingConfirmationAction = null; 
 
     // --- A. INITIAL CHECK ---
     refreshSessionStatus();
@@ -177,22 +186,30 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch('api/get_status.php')
             .then(res => res.json())
             .then(data => {
+                // Update tracked variables
+                currentSessionLevel = parseInt(data.level) || 1;
+
                 if (data.active && data.name !== 'DEFAULT') {
                     // === NAMED SESSION ===
                     isNamedSession = true;
-                    currentSessionName = data.name;
+                    // FIX: Ensure name is always uppercase
+                    currentSessionName = data.name.toUpperCase();
 
                     // Update Top Bar
-                    sessionNameEl.innerText = data.name;
+                    sessionNameEl.innerText = currentSessionName;
                     sessionNameEl.className = 'status-active';
                     if(btnLogout) btnLogout.style.display = 'inline';
 
                     // Update Menu Buttons
-                    if(continueBtn) {
-                        continueBtn.style.display = 'block';
-                        continueBtn.innerText = `CONTINUE (LVL ${data.level})`;
+                    if (continueBtn) {
+                        if (data.level > 1) {
+                            continueBtn.style.display = 'block';
+                            continueBtn.innerText = `CONTINUE (LVL ${data.level})`;
+                        } else {
+                            continueBtn.style.display = 'none';
+                        }
                     }
-                    if(sessionBtn) sessionBtn.style.display = 'none'; // Hide identity button
+                    if (sessionBtn) sessionBtn.style.display = 'none'; 
                     
                 } else {
                     // === DEFAULT / NO SESSION ===
@@ -212,12 +229,38 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.warn("Backend Error:", err));
     }
 
-    // --- B. BUTTON HANDLERS ---
+    // --- B. CUSTOM MODAL HELPER ---
+    function showConfirmation(title, message, onYes) {
+        if (!confirmOverlay) return;
+        confirmTitle.innerText = title;
+        confirmMsg.innerHTML = message.replace(/\n/g, '<br>');
+        
+        pendingConfirmationAction = onYes;
+        confirmOverlay.style.display = 'flex';
+    }
+
+    function closeConfirmation() {
+        if (confirmOverlay) confirmOverlay.style.display = 'none';
+        pendingConfirmationAction = null;
+    }
+
+    if (btnConfirmYes) {
+        btnConfirmYes.addEventListener('click', () => {
+            if (pendingConfirmationAction) pendingConfirmationAction();
+            closeConfirmation();
+        });
+    }
+
+    if (btnConfirmNo) {
+        btnConfirmNo.addEventListener('click', closeConfirmation);
+    }
+
+
+    // --- C. BUTTON HANDLERS ---
 
     // 1. CONTINUE BUTTON
     if (continueBtn) {
         continueBtn.addEventListener('click', () => {
-            // Just load the game. PHP holds the state.
             saveMusicState();
             window.location.href = 'game.html';
         });
@@ -226,15 +269,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. NEW GAME BUTTON
     if (startBtn) {
         startBtn.addEventListener('click', () => {
-            if (isNamedSession) {
-                // If we have a name, warn the user they are resetting to Level 1
-                if (confirm(`Reset current run and start from Level 1? \n(Identity '${currentSessionName}' will be kept)`)) {
-                    // Pass NULL as name to tell backend: "Keep existing name, just reset run"
-                    startNewRun(null, true); 
-                }
+            // Only warn if named session AND level > 1
+            if (isNamedSession && currentSessionLevel > 1) {
+                // FIX: currentSessionName is now guaranteed uppercase, but let's be double sure
+                const safeName = currentSessionName.toUpperCase();
+                showConfirmation(
+                    "WARNING", 
+                    `RESET CURRENT RUN AND START FROM LEVEL 1?\n(SESSION '${safeName}' WILL BE KEPT)`,
+                    () => {
+                        startNewRun(null, true); 
+                    }
+                );
             } else {
-                // Default session -> Just overwrite it instantly
-                startNewRun("DEFAULT", true);
+                startNewRun(isNamedSession ? null : "DEFAULT", true);
             }
         });
     }
@@ -255,12 +302,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. MODAL CONFIRM (Save Name)
     if (btnConfirm) {
         btnConfirm.addEventListener('click', () => {
-            const name = sessionInput.value.trim();
+            const name = sessionInput.value.trim().toUpperCase(); // Ensure input is uppercase
             if (name.length < 1) {
                 alert("NAME REQUIRED");
                 return;
             }
-            // Save name, but DO NOT launch game (false)
             startNewRun(name, false); 
         });
     }
@@ -268,30 +314,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // 5. LOGOUT / RESET LINK
     if (btnLogout) {
         btnLogout.addEventListener('click', () => {
-            if (confirm("Reset Session? This will delete your identity.")) {
-                fetch('api/logout.php')
-                    .then(res => res.json())
-                    .then(() => {
-                        window.location.reload();
-                    })
-                    .catch(err => {
-                        console.error("Logout Error", err);
-                        window.location.reload();
-                    });
-            }
+            fetch('api/logout.php')
+                .then(res => res.json())
+                .then(() => {
+                    sessionStorage.removeItem('bloodbath_gamestarted');
+                    sessionStorage.removeItem('bloodbath_level_cache');
+                    refreshSessionStatus();
+                })
+                .catch(err => {
+                    console.error("Logout Error", err);
+                    window.location.reload();
+                });
         });
     }
 
-    // --- C. HELPER FUNCTIONS ---
+    // --- D. HELPER FUNCTIONS ---
 
-    /**
-     * Calls PHP to reset/create run.
-     * @param {string|null} name - Name to set. If null, keeps existing PHP session name.
-     * @param {boolean} shouldLaunch - If true, redirects to game.html. If false, refreshes menu.
-     */
     function startNewRun(name, shouldLaunch) {
-        // Prepare payload. 
-        // If name is null, we send empty object. api/new_run.php handles that by keeping existing name.
         const payload = name ? { name: name } : {};
 
         fetch('api/new_run.php', {
@@ -301,17 +340,13 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(res => res.json())
         .then(data => {
             if (data.status === 'ok') {
-                // Reset Client State
                 state.reset(); 
-                
-                // Clear Visual Cache so Loading Screen is accurate (Level 1)
                 sessionStorage.setItem('bloodbath_level_cache', '1');
 
                 if (shouldLaunch) {
                     saveMusicState();
                     window.location.href = 'game.html';
                 } else {
-                    // Update UI (Close modal, show Continue button)
                     if (sessionOverlay) sessionOverlay.style.display = 'none';
                     refreshSessionStatus();
                 }
@@ -326,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('bloodbath_gamestarted', 'true');
     }
 
-    // --- D. STANDARD UI EVENTS ---
+    // --- E. STANDARD UI EVENTS ---
 
     // Modal Cancel
     if (btnCancel && sessionOverlay) {
@@ -336,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Input Validation (A-Z, 0-9 only)
     if (sessionInput) {
         sessionInput.addEventListener('input', (e) => {
-            e.target.value = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
+            e.target.value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         });
         sessionInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') btnConfirm.click();

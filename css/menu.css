@@ -33,6 +33,12 @@
     z-index: 20; cursor: pointer;
     opacity: 1; transition: opacity 2s ease-in-out;
 }
+
+.fade-out {
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
 #splash-text { color: #f00; font-size: 1.9rem; animation: blink 1s infinite; }
 #splash-subtext {
     color: #f00; font-family: 'Courier New', monospace;
@@ -73,20 +79,24 @@
 }
 #btn-logout:hover { opacity: 1; text-decoration: underline; text-shadow: 0 0 5px #f00; }
 
-/* === SESSION MODAL === */
-#session-overlay {
+/* === SESSION & CONFIRMATION MODALS === */
+#session-overlay, #confirmation-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0, 0, 0, 0.9); z-index: 100;
     display: flex; justify-content: center; align-items: center;
     backdrop-filter: blur(2px);
 }
-.session-box {
+.session-box, .confirmation-box {
     width: 400px; border: 2px solid #f00; background: #000;
     padding: 30px; text-align: center; box-shadow: 0 0 30px #f00;
     font-family: 'Courier New', monospace;
 }
-.session-box h2 { color: #f00; margin-top: 0; border-bottom: 1px solid #500; padding-bottom: 10px; }
-.session-box p { color: #fff; margin-bottom: 20px; }
+.session-box h2, .confirmation-box h2 { 
+    color: #f00; margin-top: 0; border-bottom: 1px solid #500; 
+    padding-bottom: 10px; text-transform: uppercase; 
+}
+.session-box p, .confirmation-box p { color: #fff; margin-bottom: 20px; }
+
 #session-input {
     background: #111; border: 1px solid #f00; color: #f00;
     font-family: 'Courier New', monospace; font-size: 1.5rem;
@@ -94,6 +104,7 @@
     outline: none; margin-bottom: 20px;
 }
 #session-input:focus { background: #200; box-shadow: 0 0 10px #f00; }
+
 .session-buttons { display: flex; justify-content: center; gap: 20px; }
 .session-buttons button {
     background: #000; color: #f00; border: 1px solid #f00;
