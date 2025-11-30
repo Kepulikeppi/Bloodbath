@@ -23,7 +23,12 @@ import { Pickup } from './Game/Pickup.js';
 // Message box
 import { MessageLog } from './UI/MessageLog.js';
 
+//UI text initializer
+import { UIInitializer } from './UI/UIInitializer.js';
+
 console.log("1. Game Script Loaded");
+
+UIInitializer.init();
 
 // --- 1. GET SETTINGS ---
 const urlParams = new URLSearchParams(window.location.search);

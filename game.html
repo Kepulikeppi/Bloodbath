@@ -19,65 +19,63 @@
 <body>
     <!-- LOADING SCREEN -->
     <div id="loading-screen">
-        <h1 id="loading-title">LEVEL 1</h1>
+        <h1 id="loading-title">LEVEL </h1>
         <div id="loading-bar-container">
             <div id="loading-bar"></div>
         </div>
-        <p id="loading-text">INITIALIZING...</p>
+        <p id="loading-text"></p> <!-- Empty, filled by JS -->
     </div>
+
+    <script>
+        try {
+            const cachedLvl = sessionStorage.getItem('bloodbath_level_cache');
+            const titleEl = document.getElementById('loading-title');
+            if (cachedLvl && titleEl) {
+                titleEl.innerText = "LEVEL " + cachedLvl;
+            }
+        } catch(e) {}
+    </script>
 
     <!-- MINIMAP -->
     <div id="minimap-container">
         <canvas id="minimap" width="230" height="230"></canvas>
-        <div class="minimap-label">SECTOR RADAR</div>
+        <div class="minimap-label" id="lbl-minimap"></div>
     </div>
      <!-- FULL MAP OVERLAY -->
     <div id="full-map-overlay" style="display: none;">
         <canvas id="full-map-canvas" width="800" height="600"></canvas>
-        <div class="full-map-label">TACTICAL MAP OVERVIEW</div>
+        <div class="full-map-label" id="lbl-fullmap"></div>
     </div>
 
     <!-- CROSSHAIR -->
     <div id="crosshair"></div>
     
-    <!-- CONTROLS OVERLAY -->
-    <div id="controls-overlay">
-        <div class="control-row">
-            <span class="key-badge">ESC</span>
-            <span class="action-text">Release mouse / Pause game</span>
-        </div>
-        <div class="control-row">
-            <span class="key-badge">F</span>
-            <span class="action-text">Flashlight</span>
-        </div>
-        <div class="control-row">
-            <span class="key-badge">M</span>
-            <span class="action-text">Map</span>
-        </div>
-        <div class="control-row">
-            <span class="key-badge">N</span>
-            <span class="action-text">Toggle minimap</span>
-        </div>
-        <div class="control-row">
-            <span class="key-badge">K / L</span>
-            <span class="action-text">Minimap zoom</span>
-        </div>
-    </div>
+    <!-- CONTROLS OVERLAY (Filled by JS) -->
+    <div id="controls-overlay"></div>
     
     <!-- HUD LAYER -->
     <div id="hud-layer">
         
         <!-- TOP LEFT: Resources & XP -->
         <div id="hud-resources">
-            <div class="res-row">XP: <span id="val-xp">0</span></div>
-            <div class="res-row">SCRAP: <span id="val-metal">0</span> | ELEC: <span id="val-elec">0</span> | CHIP: <span id="val-chip">0</span></div>
-            <div class="res-row" style="color: #ff00aa;">RAGE PILLS: <span id="val-pills">0</span></div>
+            <div class="res-row"><span id="lbl-xp"></span> <span id="val-xp">0</span></div>
+            <div class="res-row">
+                <span id="lbl-scrap"></span> <span id="val-metal">0</span> | 
+                <span id="lbl-elec"></span> <span id="val-elec">0</span> | 
+                <span id="lbl-chip"></span> <span id="val-chip">0</span>
+            </div>
+            <div class="res-row" style="color: #ff00aa;">
+                <span id="lbl-pills"></span> <span id="val-pills">0</span>
+            </div>
         </div>
+
+        <!-- MESSAGE LOG (Centered) -->
+        <div id="message-log"></div>
 
         <!-- BOTTOM LEFT: Vitals -->
         <div id="hud-vitals">
-            <div class="vital-row">HEALTH <span id="val-hp" class="big-text">100</span></div>
-            <div class="vital-row">ARMOR <span id="val-armor">0%</span></div>
+            <div class="vital-row"><span id="lbl-hp"></span> <span id="val-hp" class="big-text">100</span></div>
+            <div class="vital-row"><span id="lbl-armor"></span> <span id="val-armor">0%</span></div>
         </div>
 
         <!-- BOTTOM RIGHT: Weapon & Ammo -->
@@ -97,23 +95,20 @@
             </div>
         </div>
     </div>
-    
-    <!-- MESSAGE BOX -->
-    <div id="message-log"></div>
 
     <!-- FPS TELEMETRY -->
     <div id="fps-counter" style="display: none;">
-        FPS: <span id="fps-value">0</span>
+        <span id="lbl-fps"></span> <span id="fps-value">0</span>
     </div>
 
     <!-- PAUSE MENU -->
     <div id="pause-menu" style="display: none;">
-        <h1>GAME PAUSED</h1>
-        <p>MOUSE RELEASED</p>
+        <h1 id="pause-title"></h1>
+        <p id="pause-sub"></p>
         
         <div class="menu-buttons">
-            <button id="btn-resume">RESUME GAME</button>
-            <button id="btn-quit">EXIT TO MAIN MENU</button>
+            <button id="btn-resume"></button>
+            <button id="btn-quit"></button>
         </div>
 
         <!-- Music Player -->
@@ -140,28 +135,29 @@
 
     <!-- 2. GAME OVER MODAL -->
     <div id="game-over-screen">
-        <h1 id="game-over-title">GAME OVER</h1>
+        <h1 id="go-title"></h1>
         
-        <div class="stat-row"><span>LEVEL REACHED:</span><span class="stat-val" id="d-level">1</span></div>
-        <div class="stat-row"><span>MONSTERS KILLED:</span><span class="stat-val" id="d-kills">0</span></div>
-        <div class="stat-row"><span>ACCURACY:</span><span class="stat-val" id="d-acc">0%</span></div>
-        <div class="stat-row"><span>TIME SURVIVED:</span><span class="stat-val" id="d-time">0m 0s</span></div>
+        <div class="stat-row"><span id="lbl-go-level"></span><span class="stat-val" id="d-level">1</span></div>
+        <div class="stat-row"><span id="lbl-go-kills"></span><span class="stat-val" id="d-kills">0</span></div>
+        <div class="stat-row"><span id="lbl-go-acc"></span><span class="stat-val" id="d-acc">0%</span></div>
+        <div class="stat-row"><span id="lbl-go-time"></span><span class="stat-val" id="d-time">0m 0s</span></div>
 
         <div class="death-buttons">
-            <button id="btn-restart">START NEW GAME</button>
-            <button id="btn-menu">EXIT TO MAIN MENU</button>
+            <button id="btn-restart"></button>
+            <button id="btn-menu"></button>
         </div>
     </div>
 
-    <!-- LEVEL COMPLETE SCREEN (UPDATED TEXT) -->
+    <!-- LEVEL COMPLETE SCREEN -->
     <div id="level-screen" style="display: none;">
-        <h1>LEVEL <span id="score-level-num">1</span> CLEARED</h1>
+        <!-- "LEVEL 1 CLEARED" constructed by: "LEVEL " + span + " CLEARED" -->
+        <h1>LEVEL <span id="score-level-num"></span><span id="lbl-lc-cleared"></span></h1>
         <div class="stats-box">
-            <p>KILLS: <span id="score-kills">0</span></p>
-            <p>ACCURACY: <span id="score-acc">0%</span></p>
-            <p>TIME: <span id="score-time">00:00</span></p>
+            <p><span id="lbl-lc-kills"></span> <span id="score-kills">0</span></p>
+            <p><span id="lbl-lc-acc"></span> <span id="score-acc">0%</span></p>
+            <p><span id="lbl-lc-time"></span> <span id="score-time">00:00</span></p>
         </div>
-        <button id="btn-next-level">CONTINUE</button>
+        <button id="btn-next-level"></button>
     </div>
     
     <!-- Load Game Logic -->
