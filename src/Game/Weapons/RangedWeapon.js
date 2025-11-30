@@ -24,11 +24,11 @@ export class RangedWeapon extends Weapon {
     trigger() {
         if (this.isActing || this.isReloading) return false;
 
-        const weaponId = this.config.id;
+        const weaponId = this.config.id; // e.g. "PISTOL_9MM"
         const wState = state.getWeaponState(weaponId);
         
         // Get current reserve ammo for this weapon type
-        const ammoType = this.config.ammoType; // e.g., "9mm"
+        const ammoType = this.config.ammoType; 
         const reserveCount = state.data.ammo[ammoType];
 
         // --- AMMO CHECK ---
@@ -40,7 +40,7 @@ export class RangedWeapon extends Weapon {
             // Case B: Totally empty -> CLICK SOUND
             else {
                 if (this.audioManager) {
-                    this.audioManager.playSFX('empty');
+                    this.audioManager.playSFX(`${weaponId}_EMPTY`);
                 }
             }
             return false; // Cannot shoot
@@ -59,7 +59,10 @@ export class RangedWeapon extends Weapon {
         this.slide.position.z += 0.1; 
         setTimeout(() => { this.slide.position.z -= 0.1; }, 80);
 
-        if (this.audioManager) this.audioManager.playSFX('pistol');
+        // PLAY DYNAMIC SOUND (e.g. "PISTOL_9MM_SHOOT")
+        if (this.audioManager) {
+            this.audioManager.playSFX(`${weaponId}_SHOOT`);
+        }
 
         setTimeout(() => { this.isActing = false; }, this.config.fireRate * 1000);
         
@@ -69,8 +72,6 @@ export class RangedWeapon extends Weapon {
     reload() {
         if (this.isReloading || this.isActing) return;
         
-        // Check if reload is possible (logic in GameState)
-        // We check reserves manually here to decide if we play animation
         const wConfig = this.config;
         const maxMag = state.getMaxMag(wConfig.id);
         const current = state.getWeaponState(wConfig.id).magCurrent;
@@ -80,13 +81,16 @@ export class RangedWeapon extends Weapon {
 
         // START RELOAD
         this.isReloading = true;
-        console.log("Reloading...");
-        if (this.audioManager) this.audioManager.playSFX('reload'); // Ensure 'reload.mp3' exists
+        // console.log("Reloading...");
+        
+        // PLAY DYNAMIC SOUND (e.g. "PISTOL_9MM_RELOAD")
+        if (this.audioManager) {
+            this.audioManager.playSFX(`${wConfig.id}_RELOAD`);
+        }
 
         // Animation: Lower Gun
-        // We tween rotation X to look down
         const startRot = this.baseRot.x;
-        this.mesh.rotation.x = startRot + 1.0; // Tilt up/back like checking mag
+        this.mesh.rotation.x = startRot + 1.0; 
 
         setTimeout(() => {
             // ACTUAL RELOAD (Data change)
@@ -100,9 +104,6 @@ export class RangedWeapon extends Weapon {
     }
 
     update(delta, isMoving, time) {
-        // If reloading, don't do normal recoil updates, 
-        // or implement a separate animation lerp here.
-        // For now, we snap via setTimeout, but we must ensure update doesn't override it.
         if (!this.isReloading) {
             super.update(delta, isMoving, time);
             
