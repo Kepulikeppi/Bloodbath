@@ -25,6 +25,7 @@ import { MessageLog } from './UI/MessageLog.js';
 
 //UI text initializer
 import { UIInitializer } from './UI/UIInitializer.js';
+import { UIConfig } from './UIConfig.js';
 
 console.log("1. Game Script Loaded");
 
@@ -153,39 +154,50 @@ const levelManager = new LevelManager(engine, currentLevel, audioManager);
 let mapData; 
 
 async function loadLevel() {
-    // FIX: Removed the line that reset runStats.startTime to Date.now() here.
-    // The start time is now handled exclusively by GameState initialization/loading.
-    
+    // FIX: Default to a random seed (Time + Random) if API fails. 
+    // Never use a static string like "DEFAULT".
+    let currentSeed = Date.now() + "_" + Math.floor(Math.random() * 1000); 
+
     try {
         const res = await fetch('api/get_status.php');
         const data = await res.json();
+        
+        // If server returned a seed, use it.
+        // It will now always return a number, never "DEFAULT".
+        if (data.seed) {
+            currentSeed = data.seed;
+        }
+
         if (data.active) {
             currentLevel = data.level;
             if(levelManager) levelManager.currentLevel = currentLevel;
         }
     } catch(e) {
-        console.warn("API Error, using default Level 1");
+        console.warn("API Error, generating client-side random seed");
     }
 
     loadingUI.setTitle(currentLevel); 
-    loadingUI.update(10, "GENERATING SECTOR...");
+    loadingUI.update(10, UIConfig.LOADING.STEP_GEN);
 
     setTimeout(() => {
         import('./Game/DebrisSystem.js').then(Module => {
             debrisSystem = new Module.DebrisSystem(engine.scene);
         });
         
-        loadingUI.update(30, "GENERATING SECTOR...");
+        loadingUI.update(30, UIConfig.LOADING.STEP_GEN);
 
         const levelScale = 1 + (currentLevel * 0.1);
         const mapWidth = Math.floor(Config.MAP_WIDTH * levelScale);
         const mapHeight = Math.floor(Config.MAP_HEIGHT * levelScale);
         
+        // Pass the guaranteed unique seed
         import('./ProcGen/DungeonGenerator.js').then(Module => {
-            const generator = new Module.DungeonGenerator(seed, mapWidth, mapHeight);
+            const generator = new Module.DungeonGenerator(currentSeed, mapWidth, mapHeight);
+            
+            // ... (Rest of the function logic remains exactly the same) ...
             mapData = generator.generate();
             
-            loadingUI.update(60, "BUILDING GEOMETRY...");
+            loadingUI.update(60, UIConfig.LOADING.STEP_GEO);
 
             import('./ProcGen/LevelBuilder.js').then(Module => {
                 const builder = new Module.LevelBuilder(engine.scene);
@@ -196,9 +208,8 @@ async function loadLevel() {
                     if (obj.isInstancedMesh) levelMeshes.push(obj);
                 });
 
-                loadingUI.update(80, "SPAWNING ENTITIES...");
+                loadingUI.update(80, UIConfig.LOADING.STEP_SPAWN);
 
-                // Reset Pickups on level load
                 pickups = []; 
 
                 const entities = Spawner.spawnEntities(engine, mapData, generator, builder, audioManager);
@@ -209,7 +220,7 @@ async function loadLevel() {
                 
                 minimap = new Minimap(mapData);
                 
-                loadingUI.update(90, "COMPILING SHADERS...");
+                loadingUI.update(90, UIConfig.LOADING.STEP_SHADER);
 
                 engine.renderer.render(engine.scene, engine.camera);
                 
