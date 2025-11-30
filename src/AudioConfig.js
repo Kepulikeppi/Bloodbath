@@ -33,10 +33,13 @@ export const AudioConfig = {
         // Loot (Placeholders for your new files)
         LOOT: {
             HEALTH: './assets/sfx/pickup_health.mp3',
-            AMMO_LIGHT: './assets/sfx/pickup_clip.mp3',
-            AMMO_HEAVY: './assets/sfx/pickup_shell.mp3',
+            AMMO_9MM: './assets/sfx/pickup_ammo9mm.mp3',
+            AMMO_44: './assets/sfx/pickup_ammo44.mp3',
+            AMMO_762: './assets/sfx/pickup_ammo762.mp3',
+            AMMO_127MM: './assets/sfx/pickup_ammo127mm.mp3',
             METAL: './assets/sfx/pickup_metal.mp3',
-            TECH: './assets/sfx/pickup_tech.mp3',
+            ELEC: './assets/sfx/pickup_elec.mp3',
+            CHIP: './assets/sfx/pickup_chip.mp3',
             PILLS: './assets/sfx/pill_rattle.mp3',
             XP: './assets/sfx/xp_gain.mp3'
         }

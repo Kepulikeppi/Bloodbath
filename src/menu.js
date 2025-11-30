@@ -1,6 +1,7 @@
 import { AudioManager } from './Core/AudioManager.js';
 import { AudioConfig } from './AudioConfig.js';
 import { MusicConfig } from './MusicConfig.js';
+import { UIConfig } from './UIConfig.js'; 
 import { state } from './Game/GameState.js'; 
 
 console.log("[Menu] Script Loading...");
@@ -73,7 +74,7 @@ function drawLoop() {
 drawLoop(); 
 
 // =================================================================
-// 3. UI LOGIC
+// 3. UI LOGIC (Audio Controls)
 // =================================================================
 window.addEventListener('trackchange', (e) => {
     let fileName = e.detail.split('/').pop().split('.')[0];
@@ -157,26 +158,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionBtn = document.getElementById('session-btn');   // "SESSION"
     const btnLogout = document.getElementById('btn-logout');     // "[ RESET ]"
 
-    // Modal Elements
+    // Session Modal Elements
     const sessionOverlay = document.getElementById('session-overlay');
     const sessionInput = document.getElementById('session-input');
     const btnConfirm = document.getElementById('btn-confirm-session');
     const btnCancel = document.getElementById('btn-cancel-session');
+    const sessionErrorMsg = document.getElementById('session-error-msg'); // NEW
 
-    // Confirm Modal
+    // Confirmation Modal Elements
     const confirmOverlay = document.getElementById('confirmation-overlay');
     const confirmTitle = document.getElementById('confirm-title');
     const confirmMsg = document.getElementById('confirm-message');
     const btnConfirmYes = document.getElementById('btn-confirm-yes');
     const btnConfirmNo = document.getElementById('btn-confirm-no');
     
-    // Credits
+    // Credits Elements
     const creditsBtn = document.getElementById('credits-btn');
     const creditsOverlay = document.getElementById('credits-overlay');
     const creditsClose = document.getElementById('credits-close-btn');
 
     let isNamedSession = false;
-    let currentSessionName = "DEFAULT";
+    let currentSessionName = UIConfig.COMMON.LABEL_DEFAULT;
     let currentSessionLevel = 1; 
     let pendingConfirmationAction = null; 
 
@@ -194,14 +196,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     isNamedSession = true;
                     currentSessionName = data.name.toUpperCase();
 
+                    // Update Top Bar
                     sessionNameEl.innerText = currentSessionName;
                     sessionNameEl.className = 'status-active';
                     if(btnLogout) btnLogout.style.display = 'inline';
 
+                    // Update Menu Buttons
                     if (continueBtn) {
                         if (data.level > 1) {
                             continueBtn.style.display = 'block';
-                            continueBtn.innerText = `CONTINUE (LVL ${data.level})`;
+                            continueBtn.innerText = `${UIConfig.COMMON.BTN_CONTINUE} (LVL ${data.level})`;
                         } else {
                             continueBtn.style.display = 'none';
                         }
@@ -211,12 +215,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     // === DEFAULT / NO SESSION ===
                     isNamedSession = false;
-                    currentSessionName = "DEFAULT";
+                    currentSessionName = UIConfig.COMMON.LABEL_DEFAULT;
 
-                    sessionNameEl.innerText = "DEFAULT";
+                    // Update Top Bar
+                    sessionNameEl.innerText = UIConfig.COMMON.LABEL_DEFAULT;
                     sessionNameEl.className = 'status-default';
                     if(btnLogout) btnLogout.style.display = 'none';
 
+                    // Update Menu Buttons
                     if(continueBtn) continueBtn.style.display = 'none';
                     if(sessionBtn) sessionBtn.style.display = 'block';
                 }
@@ -224,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.warn("Backend Error:", err));
     }
 
-    // --- B. CONFIRMATION HELPER ---
+    // --- B. CUSTOM MODAL HELPER ---
     function showConfirmation(title, message, onYes) {
         if (!confirmOverlay) return;
         confirmTitle.innerText = title;
@@ -239,16 +245,21 @@ document.addEventListener('DOMContentLoaded', () => {
         pendingConfirmationAction = null;
     }
 
-    if (btnConfirmYes) btnConfirmYes.addEventListener('click', () => {
-        if (pendingConfirmationAction) pendingConfirmationAction();
-        closeConfirmation();
-    });
+    if (btnConfirmYes) {
+        btnConfirmYes.addEventListener('click', () => {
+            if (pendingConfirmationAction) pendingConfirmationAction();
+            closeConfirmation();
+        });
+    }
 
-    if (btnConfirmNo) btnConfirmNo.addEventListener('click', closeConfirmation);
+    if (btnConfirmNo) {
+        btnConfirmNo.addEventListener('click', closeConfirmation);
+    }
 
 
     // --- C. BUTTON HANDLERS ---
 
+    // 1. CONTINUE BUTTON
     if (continueBtn) {
         continueBtn.addEventListener('click', () => {
             saveMusicState();
@@ -256,21 +267,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 2. NEW GAME BUTTON
     if (startBtn) {
         startBtn.addEventListener('click', () => {
             if (isNamedSession && currentSessionLevel > 1) {
                 const safeName = currentSessionName.toUpperCase();
                 showConfirmation(
-                    "WARNING", 
-                    `RESET CURRENT RUN AND START FROM LEVEL 1?\n(SESSION '${safeName}' WILL BE KEPT)`,
+                    UIConfig.MENU.WARN_TITLE, 
+                    UIConfig.MENU.WARN_RESET.replace('{name}', safeName),
                     () => { startNewRun(null, true); }
                 );
             } else {
-                startNewRun(isNamedSession ? null : "DEFAULT", true);
+                startNewRun(isNamedSession ? null : UIConfig.COMMON.LABEL_DEFAULT, true);
             }
         });
     }
 
+    // 3. SESSION BUTTON (Open Modal)
     if (sessionBtn) {
         sessionBtn.addEventListener('click', () => {
             if (sessionOverlay) {
@@ -283,48 +296,69 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (btnConfirm) {
+    // 4. MODAL CONFIRM (Save Name)
+if (btnConfirm) {
         btnConfirm.addEventListener('click', () => {
             const name = sessionInput.value.trim().toUpperCase();
+            
+            // === NEW ERROR HANDLING ===
             if (name.length < 1) {
-                alert("NAME REQUIRED");
+                if (sessionErrorMsg) {
+                    sessionErrorMsg.innerText = UIConfig.MENU.ERROR_EMPTY;
+                    
+                    // Reset Animation: Remove class -> Force Reflow -> Add class
+                    sessionErrorMsg.classList.remove('error-active');
+                    void sessionErrorMsg.offsetWidth; // Magic line to trigger reflow
+                    sessionErrorMsg.classList.add('error-active');
+                    
+                    // Cleanup after animation (2.5s)
+                    setTimeout(() => {
+                        sessionErrorMsg.classList.remove('error-active');
+                    }, 2500);
+                }
                 return;
             }
+            // ==========================
+
             startNewRun(name, false); 
         });
     }
 
+    // 5. LOGOUT / RESET LINK
     if (btnLogout) {
         btnLogout.addEventListener('click', () => {
-            // Optimistic Logout
-            sessionNameEl.innerText = "DEFAULT";
+            // === OPTIMISTIC UI UPDATE ===
+            // 1. Visually reset immediately
+            sessionNameEl.innerText = UIConfig.COMMON.LABEL_DEFAULT;
             sessionNameEl.className = 'status-default';
             btnLogout.style.display = 'none';
             if(continueBtn) continueBtn.style.display = 'none';
             if(sessionBtn) sessionBtn.style.display = 'block';
 
+            // 2. Clear Client State
             isNamedSession = false;
-            currentSessionName = "DEFAULT";
+            currentSessionName = UIConfig.COMMON.LABEL_DEFAULT;
             currentSessionLevel = 1;
             sessionStorage.removeItem('bloodbath_gamestarted');
             sessionStorage.removeItem('bloodbath_level_cache');
 
+            // 3. Send Request in Background
             fetch('api/logout.php')
                 .then(res => res.json())
-                .catch(err => console.warn("Logout warning:", err));
+                .catch(err => {
+                    console.warn("Background logout response warning:", err);
+                });
         });
     }
 
-    // --- D. CORE LOGIC (UPDATED WITH ASYNC SPINNER) ---
+    // --- D. HELPER FUNCTIONS ---
 
     function startNewRun(name, shouldLaunch) {
         const payload = name ? { name: name } : {};
 
-        // === 1. IMMEDIATE UI FEEDBACK ===
+        // === OPTIMISTIC UI: SAVE NAME ===
         if (sessionOverlay) sessionOverlay.style.display = 'none';
 
-        // Only show loader if we are Saving a name (and staying on menu)
-        // If launching game, the browser spinner takes over anyway.
         if (name && !shouldLaunch) {
             // Replace Name with Spinner
             sessionNameEl.innerHTML = '<span class="loading-spinner"></span>';
@@ -332,7 +366,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if(sessionBtn) sessionBtn.style.display = 'none';
         }
 
-        // === 2. ASYNC FETCH ===
         fetch('api/new_run.php', {
             method: 'POST',
             body: JSON.stringify(payload)
@@ -347,8 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     saveMusicState();
                     window.location.href = 'game.html';
                 } else if (name) {
-                    // === 3. SUCCESS (Show Name) ===
-                    // Delay slightly if needed to prevent glitch, but instant is better
+                    // === SUCCESS (Show Name) ===
                     isNamedSession = true;
                     currentSessionName = name;
                     
@@ -357,7 +389,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     sessionNameEl.className = 'status-active';
                     
                     if(btnLogout) btnLogout.style.display = 'inline';
-                    // Keep sessionBtn hidden
                 } else {
                     refreshSessionStatus();
                 }
@@ -369,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (name && !shouldLaunch) {
                 sessionNameEl.innerText = "ERROR";
                 setTimeout(() => {
-                    sessionNameEl.innerText = "DEFAULT";
+                    sessionNameEl.innerText = UIConfig.COMMON.LABEL_DEFAULT;
                     if(sessionBtn) sessionBtn.style.display = 'block';
                 }, 2000);
             }
@@ -382,12 +413,14 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('bloodbath_gamestarted', 'true');
     }
 
-    // --- E. MISC EVENTS ---
+    // --- E. STANDARD UI EVENTS ---
 
+    // Modal Cancel
     if (btnCancel && sessionOverlay) {
         btnCancel.addEventListener('click', () => sessionOverlay.style.display = 'none');
     }
 
+    // Input Validation (A-Z, 0-9 only)
     if (sessionInput) {
         sessionInput.addEventListener('input', (e) => {
             e.target.value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -397,6 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Credits
     if (creditsBtn && creditsOverlay) {
         creditsBtn.addEventListener('click', () => creditsOverlay.style.display = 'flex');
         creditsClose.addEventListener('click', () => creditsOverlay.style.display = 'none');

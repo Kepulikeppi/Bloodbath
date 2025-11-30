@@ -7,7 +7,6 @@
 	<meta property="og:description" content="A browser-based shooter with procedural map generation">
 	<meta property="og:type" content="website">
 
-	<!-- Small preview image -->
 	<meta property="og:image" content="https://kepulikeppi.com/games/bloodbath/bloodbath-icon-small.jpg">
 	<meta property="og:image:type" content="image/jpeg">
 	<meta property="og:image:width" content="128">
@@ -33,14 +32,13 @@
         <div id="mobile-warning" style="display: none;">
             <h2>⚠ WARNING ⚠</h2>
             <p>MOBILE DEVICE DETECTED</p>
-            <p class="small">This game relies on Mouse & Keyboard input.<br>Experience may be compromised.</p>
+            <p class="small">Mouse & keyboard input is required.<br>This website will play audio.</p>
             <button id="mobile-continue-btn"> UNDERSTOOD. CONTINUE </button>
         </div>
     </div>
 
     <!-- Sidebar UI -->
     <div id="ui-layer">
-        <!-- SESSION INDICATOR WITH LOGOUT BUTTON -->
         <div id="session-display">
             SESSION: <span id="session-name" class="status-none">DEFAULT</span>
             <button id="btn-logout" style="display: none;" title="End Session">[ RESET ]</button>
@@ -106,10 +104,14 @@
         <div class="session-box">
             <h2>SESSION NAME</h2>
             <p>Naming your session keeps it alive for up to 24 hours. This saves your in-game progess. The default session won't save any progress.</p>
-            <p>The game will not gather or save any personal information. The session is identified by a randomly generated ID.</p>
-            <p>The session will be deleted when the browser is closed, or when the browser cache is cleared. You can also delete the session manually by clicking on the "reset" link next to the session name.</p>
-            <input type="text" id="session-input" maxlength="15" placeholder="Enter a name..." autocomplete="off">
+            <p class="small-text">The game will not gather or save any personal information. The session is identified by a randomly generated ID.</p>
+            <p class="small-text">You can delete the session manually by clicking on the "reset" link next to the session name.</p>
             
+            <input type="text" id="session-input" maxlength="15" placeholder="ENTER A NAME..." autocomplete="off">
+            
+            <!-- NEW: Error Placeholder (Reserved Space) -->
+            <div id="session-error-msg" class="error-placeholder"></div>
+
             <div class="session-buttons">
                 <button id="btn-confirm-session">SAVE</button>
                 <button id="btn-cancel-session">CANCEL</button>
@@ -117,7 +119,7 @@
         </div>
     </div>
 
-    <!-- [NEW] GENERIC CONFIRMATION MODAL -->
+    <!-- GENERIC CONFIRMATION MODAL -->
     <div id="confirmation-overlay" style="display: none;">
         <div class="confirmation-box">
             <h2 id="confirm-title">WARNING</h2>

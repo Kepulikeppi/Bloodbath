@@ -30,6 +30,7 @@ export const UIConfig = {
         WARN_TITLE: "WARNING",
         WARN_RESET: "RESET CURRENT RUN AND START FROM LEVEL 1?\n(SESSION '{name}' WILL BE KEPT)",
         WARN_LOGOUT: "RESET SESSION?\nTHIS WILL DELETE YOUR IDENTITY.",
-        INPUT_PLACEHOLDER: "A friendly name..."
+        INPUT_PLACEHOLDER: "A friendly name...",
+        ERROR_EMPTY: "INPUT A NAME FIRST!"
     }
 };
