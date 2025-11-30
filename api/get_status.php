@@ -1,16 +1,20 @@
 <?php
-require 'session_config.php';
+session_start();
+header('Content-Type: application/json');
 
-$response = [
-    'active' => false,
-    'name' => 'none',
-    'level' => 1
-];
+$response = [];
 
-if (isset($_SESSION['player_name'])) {
+if (isset($_SESSION['level'])) {
     $response['active'] = true;
-    $response['name'] = $_SESSION['player_name'];
-    $response['level'] = $_SESSION['level'] ?? 1;
+    $response['level'] = $_SESSION['level'];
+    $response['name'] = $_SESSION['session_name'] ?? 'DEFAULT';
+} else {
+    $response['active'] = false;
+    $response['level'] = 1;
+    $response['name'] = 'DEFAULT';
 }
 
-send_json($response);
+// Performance Fix
+session_write_close();
+
+echo json_encode($response);

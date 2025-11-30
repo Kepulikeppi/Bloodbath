@@ -1,5 +1,6 @@
 import { AudioManager } from './Core/AudioManager.js';
-import { Config } from './Config.js';
+import { AudioConfig } from './AudioConfig.js';
+import { MusicConfig } from './MusicConfig.js';
 import { state } from './Game/GameState.js'; 
 
 console.log("[Menu] Script Loading...");
@@ -8,7 +9,7 @@ console.log("[Menu] Script Loading...");
 // 1. SETUP AUDIO & VOLUME
 // =================================================================
 const audioManager = new AudioManager(); 
-audioManager.setPlaylist(Config.PLAYLIST);
+audioManager.setPlaylist(MusicConfig.PLAYLIST);
 
 const volSlider = document.getElementById('vol-music');
 try {
@@ -18,12 +19,12 @@ try {
         if (volSlider) volSlider.value = val;
         audioManager.setVolume(val);
     } else {
-        if (volSlider) volSlider.value = Config.AUDIO_DEFAULT_VOL;
-        audioManager.setVolume(Config.AUDIO_DEFAULT_VOL);
+        if (volSlider) volSlider.value = AudioConfig.DEFAULT_VOL;
+        audioManager.setVolume(AudioConfig.DEFAULT_VOL);
     }
 } catch (e) {
-    if (volSlider) volSlider.value = Config.AUDIO_DEFAULT_VOL;
-    audioManager.setVolume(Config.AUDIO_DEFAULT_VOL);
+    if (volSlider) volSlider.value = AudioConfig.DEFAULT_VOL;
+    audioManager.setVolume(AudioConfig.DEFAULT_VOL);
 }
 
 if (volSlider) {
@@ -53,9 +54,9 @@ function drawLoop() {
     if (!audioManager.isPlaying) return;
 
     const data = audioManager.getFrequencyData();
-    const barCount = Config.VIZ_BAR_COUNT; 
-    const startBin = Config.VIZ_BIN_START;
-    const step = Config.VIZ_BIN_STEP;
+    const barCount = MusicConfig.VIZ_BAR_COUNT; 
+    const startBin = MusicConfig.VIZ_BIN_START;
+    const step = MusicConfig.VIZ_BIN_STEP;
     const barWidth = width / barCount;
     
     ctx.fillStyle = '#ff0000';
@@ -72,7 +73,7 @@ function drawLoop() {
 drawLoop(); 
 
 // =================================================================
-// 3. UI LOGIC (Audio Controls)
+// 3. UI LOGIC
 // =================================================================
 window.addEventListener('trackchange', (e) => {
     let fileName = e.detail.split('/').pop().split('.')[0];
@@ -146,7 +147,7 @@ if (sessionStorage.getItem('bloodbath_gamestarted') === 'true') {
 }
 
 // =================================================================
-// 5. MAIN MENU & SESSION LOGIC (REWRITTEN)
+// 5. MAIN MENU & SESSION LOGIC
 // =================================================================
 document.addEventListener('DOMContentLoaded', () => {
     // UI Elements
@@ -156,20 +157,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionBtn = document.getElementById('session-btn');   // "SESSION"
     const btnLogout = document.getElementById('btn-logout');     // "[ RESET ]"
 
-    // Session Modal Elements
+    // Modal Elements
     const sessionOverlay = document.getElementById('session-overlay');
     const sessionInput = document.getElementById('session-input');
     const btnConfirm = document.getElementById('btn-confirm-session');
     const btnCancel = document.getElementById('btn-cancel-session');
 
-    // Confirmation Modal Elements
+    // Confirm Modal
     const confirmOverlay = document.getElementById('confirmation-overlay');
     const confirmTitle = document.getElementById('confirm-title');
     const confirmMsg = document.getElementById('confirm-message');
     const btnConfirmYes = document.getElementById('btn-confirm-yes');
     const btnConfirmNo = document.getElementById('btn-confirm-no');
     
-    // Credits Elements
+    // Credits
     const creditsBtn = document.getElementById('credits-btn');
     const creditsOverlay = document.getElementById('credits-overlay');
     const creditsClose = document.getElementById('credits-close-btn');
@@ -186,21 +187,17 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch('api/get_status.php')
             .then(res => res.json())
             .then(data => {
-                // Update tracked variables
                 currentSessionLevel = parseInt(data.level) || 1;
 
                 if (data.active && data.name !== 'DEFAULT') {
                     // === NAMED SESSION ===
                     isNamedSession = true;
-                    // FIX: Ensure name is always uppercase
                     currentSessionName = data.name.toUpperCase();
 
-                    // Update Top Bar
                     sessionNameEl.innerText = currentSessionName;
                     sessionNameEl.className = 'status-active';
                     if(btnLogout) btnLogout.style.display = 'inline';
 
-                    // Update Menu Buttons
                     if (continueBtn) {
                         if (data.level > 1) {
                             continueBtn.style.display = 'block';
@@ -216,12 +213,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     isNamedSession = false;
                     currentSessionName = "DEFAULT";
 
-                    // Update Top Bar
                     sessionNameEl.innerText = "DEFAULT";
                     sessionNameEl.className = 'status-default';
                     if(btnLogout) btnLogout.style.display = 'none';
 
-                    // Update Menu Buttons
                     if(continueBtn) continueBtn.style.display = 'none';
                     if(sessionBtn) sessionBtn.style.display = 'block';
                 }
@@ -229,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.warn("Backend Error:", err));
     }
 
-    // --- B. CUSTOM MODAL HELPER ---
+    // --- B. CONFIRMATION HELPER ---
     function showConfirmation(title, message, onYes) {
         if (!confirmOverlay) return;
         confirmTitle.innerText = title;
@@ -244,21 +239,16 @@ document.addEventListener('DOMContentLoaded', () => {
         pendingConfirmationAction = null;
     }
 
-    if (btnConfirmYes) {
-        btnConfirmYes.addEventListener('click', () => {
-            if (pendingConfirmationAction) pendingConfirmationAction();
-            closeConfirmation();
-        });
-    }
+    if (btnConfirmYes) btnConfirmYes.addEventListener('click', () => {
+        if (pendingConfirmationAction) pendingConfirmationAction();
+        closeConfirmation();
+    });
 
-    if (btnConfirmNo) {
-        btnConfirmNo.addEventListener('click', closeConfirmation);
-    }
+    if (btnConfirmNo) btnConfirmNo.addEventListener('click', closeConfirmation);
 
 
     // --- C. BUTTON HANDLERS ---
 
-    // 1. CONTINUE BUTTON
     if (continueBtn) {
         continueBtn.addEventListener('click', () => {
             saveMusicState();
@@ -266,19 +256,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 2. NEW GAME BUTTON
     if (startBtn) {
         startBtn.addEventListener('click', () => {
-            // Only warn if named session AND level > 1
             if (isNamedSession && currentSessionLevel > 1) {
-                // FIX: currentSessionName is now guaranteed uppercase, but let's be double sure
                 const safeName = currentSessionName.toUpperCase();
                 showConfirmation(
                     "WARNING", 
                     `RESET CURRENT RUN AND START FROM LEVEL 1?\n(SESSION '${safeName}' WILL BE KEPT)`,
-                    () => {
-                        startNewRun(null, true); 
-                    }
+                    () => { startNewRun(null, true); }
                 );
             } else {
                 startNewRun(isNamedSession ? null : "DEFAULT", true);
@@ -286,7 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3. SESSION BUTTON (Open Modal)
     if (sessionBtn) {
         sessionBtn.addEventListener('click', () => {
             if (sessionOverlay) {
@@ -299,10 +283,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 4. MODAL CONFIRM (Save Name)
     if (btnConfirm) {
         btnConfirm.addEventListener('click', () => {
-            const name = sessionInput.value.trim().toUpperCase(); // Ensure input is uppercase
+            const name = sessionInput.value.trim().toUpperCase();
             if (name.length < 1) {
                 alert("NAME REQUIRED");
                 return;
@@ -311,28 +294,45 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 5. LOGOUT / RESET LINK
     if (btnLogout) {
         btnLogout.addEventListener('click', () => {
+            // Optimistic Logout
+            sessionNameEl.innerText = "DEFAULT";
+            sessionNameEl.className = 'status-default';
+            btnLogout.style.display = 'none';
+            if(continueBtn) continueBtn.style.display = 'none';
+            if(sessionBtn) sessionBtn.style.display = 'block';
+
+            isNamedSession = false;
+            currentSessionName = "DEFAULT";
+            currentSessionLevel = 1;
+            sessionStorage.removeItem('bloodbath_gamestarted');
+            sessionStorage.removeItem('bloodbath_level_cache');
+
             fetch('api/logout.php')
                 .then(res => res.json())
-                .then(() => {
-                    sessionStorage.removeItem('bloodbath_gamestarted');
-                    sessionStorage.removeItem('bloodbath_level_cache');
-                    refreshSessionStatus();
-                })
-                .catch(err => {
-                    console.error("Logout Error", err);
-                    window.location.reload();
-                });
+                .catch(err => console.warn("Logout warning:", err));
         });
     }
 
-    // --- D. HELPER FUNCTIONS ---
+    // --- D. CORE LOGIC (UPDATED WITH ASYNC SPINNER) ---
 
     function startNewRun(name, shouldLaunch) {
         const payload = name ? { name: name } : {};
 
+        // === 1. IMMEDIATE UI FEEDBACK ===
+        if (sessionOverlay) sessionOverlay.style.display = 'none';
+
+        // Only show loader if we are Saving a name (and staying on menu)
+        // If launching game, the browser spinner takes over anyway.
+        if (name && !shouldLaunch) {
+            // Replace Name with Spinner
+            sessionNameEl.innerHTML = '<span class="loading-spinner"></span>';
+            // Hide the 'Session' button immediately so user can't click twice
+            if(sessionBtn) sessionBtn.style.display = 'none';
+        }
+
+        // === 2. ASYNC FETCH ===
         fetch('api/new_run.php', {
             method: 'POST',
             body: JSON.stringify(payload)
@@ -346,13 +346,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (shouldLaunch) {
                     saveMusicState();
                     window.location.href = 'game.html';
+                } else if (name) {
+                    // === 3. SUCCESS (Show Name) ===
+                    // Delay slightly if needed to prevent glitch, but instant is better
+                    isNamedSession = true;
+                    currentSessionName = name;
+                    
+                    // Remove spinner, set text
+                    sessionNameEl.innerText = name; 
+                    sessionNameEl.className = 'status-active';
+                    
+                    if(btnLogout) btnLogout.style.display = 'inline';
+                    // Keep sessionBtn hidden
                 } else {
-                    if (sessionOverlay) sessionOverlay.style.display = 'none';
                     refreshSessionStatus();
                 }
             }
         })
-        .catch(err => console.error("New Run API Error:", err));
+        .catch(err => {
+            console.error("New Run API Error:", err);
+            // Revert on error
+            if (name && !shouldLaunch) {
+                sessionNameEl.innerText = "ERROR";
+                setTimeout(() => {
+                    sessionNameEl.innerText = "DEFAULT";
+                    if(sessionBtn) sessionBtn.style.display = 'block';
+                }, 2000);
+            }
+        });
     }
 
     function saveMusicState() {
@@ -361,14 +382,12 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('bloodbath_gamestarted', 'true');
     }
 
-    // --- E. STANDARD UI EVENTS ---
+    // --- E. MISC EVENTS ---
 
-    // Modal Cancel
     if (btnCancel && sessionOverlay) {
         btnCancel.addEventListener('click', () => sessionOverlay.style.display = 'none');
     }
 
-    // Input Validation (A-Z, 0-9 only)
     if (sessionInput) {
         sessionInput.addEventListener('input', (e) => {
             e.target.value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -378,7 +397,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Credits
     if (creditsBtn && creditsOverlay) {
         creditsBtn.addEventListener('click', () => creditsOverlay.style.display = 'flex');
         creditsClose.addEventListener('click', () => creditsOverlay.style.display = 'none');

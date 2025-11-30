@@ -137,3 +137,22 @@
     h1 { font-size: 2.2rem; letter-spacing: 1px; }
     #ui-layer { width: 85%; padding: 20px; }
 }
+
+/* === LOADING SPINNER === */
+.loading-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #f00;
+    border-top: 2px solid transparent; /* Creates the gap */
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-left: 5px;
+    box-shadow: 0 0 5px #f00;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
