@@ -1,5 +1,5 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
-import { Config } from '../Config.js';
+import { Config } from '../Config.js'; 
 import { AudioConfig } from '../AudioConfig.js';
 import { MusicConfig } from '../MusicConfig.js';
 
@@ -8,14 +8,17 @@ export class AudioManager {
         this.listener = new THREE.AudioListener();
         this.music = new THREE.Audio(this.listener);
         
-        this.analyser = new THREE.AudioAnalyser(this.music, Config.AUDIO_FFT_SIZE || 1024); 
-        this.analyser.analyser.smoothingTimeConstant = Config.AUDIO_SMOOTHING || 0.6;
-        this.analyser.analyser.minDecibels = Config.AUDIO_MIN_DB || -80;
-        this.analyser.analyser.maxDecibels = Config.AUDIO_MAX_DB || -10;
+        // --- ANALYSER CONFIGURATION (Loaded from AudioConfig) ---
+        this.analyser = new THREE.AudioAnalyser(this.music, AudioConfig.FFT_SIZE); 
+        this.analyser.analyser.smoothingTimeConstant = AudioConfig.SMOOTHING;
+        this.analyser.analyser.minDecibels = AudioConfig.MIN_DB;
+        this.analyser.analyser.maxDecibels = AudioConfig.MAX_DB;
 
         this.loader = new THREE.AudioLoader();
         this.ambience = new THREE.Audio(this.listener);
-        this.ambience.setVolume(0.5); 
+        
+        // Use Config for initial volume
+        this.ambience.setVolume(AudioConfig.DEFAULT_VOL); 
 
         this.sfxBuffers = {};
         this.preloadSFX();
@@ -23,14 +26,14 @@ export class AudioManager {
         this.playlist = [];
         this.currentTrackIndex = 0;
         this.isPlaying = false;
-        this.musicVolume = 0.5;
+        
+        // Use Config for initial music volume
+        this.musicVolume = AudioConfig.DEFAULT_VOL;
         this.music.setVolume(this.musicVolume);
         
-        // NEW: Track the camera for distance calculations
         this.camera = null; 
     }
 
-    // Called by game.js to link the player's ears
     setCamera(camera) {
         this.camera = camera;
     }
@@ -46,25 +49,41 @@ export class AudioManager {
             );
         };
 
-        if (Config.SFX_PISTOL) load('pistol', Config.SFX_PISTOL);
-        if (Config.SFX_RELOAD) load('reload', Config.SFX_RELOAD);
-        if (Config.SFX_EMPTY) load('empty', Config.SFX_EMPTY);
+        const SFX = AudioConfig.SFX;
+
+        // Weapons
+        if (SFX.PISTOL) load('pistol', SFX.PISTOL);
+        if (SFX.RELOAD) load('reload', SFX.RELOAD);
+        if (SFX.EMPTY) load('empty', SFX.EMPTY);
         
-        if (Config.SFX_STEPS) {
-            Config.SFX_STEPS.forEach((path, index) => load(`step${index}`, path));
+        // Steps
+        if (SFX.STEPS) {
+            SFX.STEPS.forEach((path, index) => load(`step${index}`, path));
         }
 
-        if (Config.SFX_AMBIENCE) {
-            this.loader.load(Config.SFX_AMBIENCE, (buffer) => {
+        // Ambience
+        if (SFX.AMBIENCE) {
+            this.loader.load(SFX.AMBIENCE, (buffer) => {
                 this.ambience.setBuffer(buffer);
                 this.ambience.setLoop(true);
-                this.ambience.setVolume(0.5); 
-                // Removed the failed .play() call from here
+                this.ambience.setVolume(AudioConfig.DEFAULT_VOL); // Use Config
             }, undefined, (err) => console.warn("Ambience Missing"));
         }
 
-        if (Config.SFX_HIT) load('hit', Config.SFX_HIT);
-        if (Config.SFX_DEATH) load('death', Config.SFX_DEATH);
+        // Combat
+        if (SFX.HIT) load('hit', SFX.HIT);
+        if (SFX.MONSTER_DEATH) load('death', SFX.MONSTER_DEATH); 
+        
+        // Loot Sounds
+        if (SFX.LOOT) {
+            if (SFX.LOOT.HEALTH)     load('pickup_health', SFX.LOOT.HEALTH);
+            if (SFX.LOOT.AMMO_LIGHT) load('pickup_ammo_light', SFX.LOOT.AMMO_LIGHT);
+            if (SFX.LOOT.AMMO_HEAVY) load('pickup_ammo_heavy', SFX.LOOT.AMMO_HEAVY);
+            if (SFX.LOOT.METAL)      load('pickup_metal', SFX.LOOT.METAL);
+            if (SFX.LOOT.TECH)       load('pickup_tech', SFX.LOOT.TECH);
+            if (SFX.LOOT.PILLS)      load('pickup_pills', SFX.LOOT.PILLS);
+            if (SFX.LOOT.XP)         load('pickup_xp', SFX.LOOT.XP);
+        }
     }
 
     startAmbience() {
@@ -73,7 +92,6 @@ export class AudioManager {
         }
     }
 
-    // UPDATED: Now accepts an optional position Vector3
     playSFX(name, position = null) {
         if (!this.sfxBuffers[name]) return; 
 
@@ -83,26 +101,24 @@ export class AudioManager {
         const detune = 1.0 + (Math.random() * 0.2 - 0.1);
         sound.setPlaybackRate(detune);
         
-        // Base Volume
+        // Base Volume logic could also be moved to config later if needed, 
+        // but relative mixing is usually logic-dependent.
         let vol = name.includes('step') ? 0.3 : 0.8;
 
         // --- DISTANCE ATTENUATION ---
         if (position && this.camera) {
             const dist = this.camera.position.distanceTo(position);
-            const maxDist = Config.AUDIO_MAX_DIST || 50;
-            const clampedDist = Math.max(dist, 2);
-            // Linear roll-off: 1.0 at 0m, 0.0 at 50m
-            // We clamp it so it doesn't go negative
+            const maxDist = AudioConfig.MAX_DIST; // Use Config
+            
             let factor = 1 - (dist / maxDist);
             if (factor < 0) factor = 0;
             factor = factor * factor; 
+            
             vol *= factor;
         }
-        // -----------------------------
 
         sound.setVolume(vol);
         
-        // Don't play if it's too quiet to hear (Optimization)
         if (vol > 0.01) {
             if (sound.context.state === 'suspended') sound.context.resume();
             sound.play();
@@ -110,10 +126,9 @@ export class AudioManager {
     }
 
     playRandomStep() {
-        if (!Config.SFX_STEPS) return;
-        const count = Config.SFX_STEPS.length;
+        if (!AudioConfig.SFX.STEPS) return;
+        const count = AudioConfig.SFX.STEPS.length;
         const randIndex = Math.floor(Math.random() * count);
-        // Steps are always "at player position", so we don't pass a coordinate
         this.playSFX(`step${randIndex}`);
     }
 

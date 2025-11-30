@@ -2,6 +2,8 @@ import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Engine } from './Core/Engine.js';
 import { Input } from './Core/Input.js';
 import { Config } from './Config.js';
+import { AudioConfig } from './AudioConfig.js';
+import { MusicConfig } from './MusicConfig.js';
 import { AudioManager } from './Core/AudioManager.js';
 import { Minimap } from './Game/Minimap.js';
 import { WeaponConfig } from './WeaponConfig.js';
@@ -36,7 +38,7 @@ try {
 const loadingUI = new LoadingScreen();
 loadingUI.setTitle(currentLevel);
 
-let savedVolume = Config.AUDIO_DEFAULT_VOL;
+let savedVolume = AudioConfig.DEFAULT_VOL;
 try {
     const v = localStorage.getItem('bloodbath_volume');
     if(v !== null) savedVolume = parseFloat(v);
@@ -47,7 +49,7 @@ let player = null;
 let weapon = null;
 let minimap = null;
 let enemies = []; 
-let pickups = []; // NEW: Array to hold active items
+let pickups = []; 
 let exitObject = null; 
 let debrisSystem = null;
 let levelMeshes = []; 
@@ -63,12 +65,12 @@ const raycaster = new THREE.Raycaster();
 
 // Audio
 const audioManager = new AudioManager();
-audioManager.setPlaylist(Config.PLAYLIST);
+audioManager.setPlaylist(MusicConfig.PLAYLIST);
 audioManager.setVolume(savedVolume);
 
-if(Config.SFX_PLAYER_DEATH) {
+if(AudioConfig.SFX.PLAYER_DEATH) {
     const l = new THREE.AudioLoader();
-    l.load(Config.SFX_PLAYER_DEATH, (b) => audioManager.sfxBuffers['player_death'] = b);
+    l.load(AudioConfig.SFX.PLAYER_DEATH, (b) => audioManager.sfxBuffers['player_death'] = b);
 }
 
 // UI
@@ -119,7 +121,7 @@ const engine = new Engine((delta) => {
              enemies.forEach(enemy => enemy.update(delta, engine.camera.position, mapData, enemies));
         }
         
-        // NEW: Update Pickups
+        // Update Pickups
         if (pickups.length > 0) {
             // Filter out picked up items (update returns true if collected)
             pickups = pickups.filter(p => !p.update(delta, engine.camera.position));
@@ -233,10 +235,10 @@ function triggerGameOver() {
 
 function showDeathScreen() {
     engine.controls.unlock();
-    if (Config.MUSIC_DEATH) {
+    if (MusicConfig.DEATH_THEME) {
         audioManager.stop(); 
         const l = new THREE.AudioLoader();
-        l.load(Config.MUSIC_DEATH, (buffer) => {
+        l.load(MusicConfig.DEATH_THEME, (buffer) => {
             audioManager.music.setBuffer(buffer);
             audioManager.music.setLoop(true);
             audioManager.music.setVolume(0.5);
@@ -287,7 +289,7 @@ document.addEventListener('mousedown', (e) => {
                                 audioManager.playSFX('death', enemyInstance.mesh.position);
                                 enemies = enemies.filter(e => e !== enemyInstance);
                                 
-                                // === NEW: LOOT DROP LOGIC ===
+                                // LOOT DROP
                                 const type = enemyInstance.stats.enemyType;
                                 if (type) {
                                     const drop = LootManager.getDrop(type);
@@ -296,7 +298,6 @@ document.addEventListener('mousedown', (e) => {
                                         pickups.push(p);
                                     }
                                 }
-                                // =============================
 
                                 const gibOrigin = enemyInstance.mesh.position.clone();
                                 gibOrigin.y += 1.8; 
@@ -416,6 +417,7 @@ document.body.addEventListener('click', () => {
     }
 });
 
+// LISTEN FOR LOOT
 window.addEventListener('loot-pickup', (e) => {
     const data = e.detail;
     
@@ -424,7 +426,8 @@ window.addEventListener('loot-pickup', (e) => {
 
     // 2. Play Sound
     if (data.sound) {
-        // Check if the sound buffer exists before trying to play
+
+        
         audioManager.playSFX(data.sound);
     }
 });
