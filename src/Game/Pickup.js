@@ -2,8 +2,18 @@ import * as THREE from 'https://esm.sh/three@0.160.0';
 import { LootConfig, LootTypes } from '../LootConfig.js';
 import { state } from './GameState.js';
 
+// === STATIC RESOURCES ===
+// These exist once for the entire game session.
 const GeometryCache = {};
 const MaterialCache = {};
+
+// === THE LIGHT RING BUFFER ===
+// We allocate these ONCE. We never add/remove lights from the scene again.
+// This guarantees the Shader never recompiles during gameplay.
+const MAX_LIGHTS = 32;
+const LightPool = [];
+let LightIndex = 0;
+let PoolInitialized = false;
 
 export class Pickup {
     constructor(scene, type, position) {
@@ -12,11 +22,15 @@ export class Pickup {
         this.config = LootConfig[type] || LootConfig[LootTypes.SCRAP]; 
         this.isActive = true;
         
-        // 1. Geometry
+        // 1. INITIALIZE POOL (Run once per game load)
+        if (!PoolInitialized) {
+            this.initLightPool(scene);
+        }
+
+        // 2. GEOMETRY & MATERIAL (Cached)
         const shapeKey = this.config.shape;
         if (!GeometryCache[shapeKey]) GeometryCache[shapeKey] = this.createGeometry(shapeKey);
         
-        // 2. Material
         const matKey = `${this.config.color}-${this.config.glow}`;
         if (!MaterialCache[matKey]) {
             MaterialCache[matKey] = new THREE.MeshStandardMaterial({ 
@@ -28,22 +42,46 @@ export class Pickup {
             });
         }
 
-        // 3. Mesh
+        // 3. MESH
         this.mesh = new THREE.Mesh(GeometryCache[shapeKey], MaterialCache[matKey]);
         this.mesh.position.copy(position);
         this.mesh.position.y += 0.5; 
         this.mesh.scale.setScalar(this.config.scale);
+        this.scene.add(this.mesh);
         
-        // 4. Light
+        // 4. ASSIGN LIGHT (Ring Buffer Strategy)
+        this.light = null;
         if (this.config.glow) {
-            this.light = new THREE.PointLight(this.config.color, 1, 3);
-            this.light.position.y = 0.2;
-            this.light.castShadow = false; 
-            this.mesh.add(this.light);
+            // Steal the next available light in the ring
+            const light = LightPool[LightIndex];
+            
+            // Move it here and turn it on
+            light.position.copy(this.mesh.position);
+            light.position.y += 0.2;
+            light.color.setHex(this.config.color);
+            light.intensity = 1.0;
+            
+            this.light = light; // Remember which light we hold
+            
+            // Advance index (Loop back to 0 if we hit max)
+            LightIndex = (LightIndex + 1) % MAX_LIGHTS;
         }
 
-        this.scene.add(this.mesh);
         this.time = Math.random() * 100;
+    }
+
+    initLightPool(scene) {
+        // Create the fixed budget of lights. 
+        // The GPU compiles the shader for this exact number of lights.
+        for (let i = 0; i < MAX_LIGHTS; i++) {
+            const light = new THREE.PointLight(0xffffff, 0, 3); // Start intensity 0
+            light.castShadow = false;
+            light.position.set(0, -999, 0); // Hide in void
+            scene.add(light);
+            LightPool.push(light);
+        }
+        PoolInitialized = true;
+        console.log(`[Pickup] Initialized Light Pool (${MAX_LIGHTS} lights)`);
     }
 
     createGeometry(shape) {
@@ -76,26 +114,19 @@ export class Pickup {
     collect() {
         this.isActive = false;
         
-        // === THE FIX ===
-        // We must NOT change the total number of lights in the scene.
+        // 1. RELEASE LIGHT
+        // We just turn it off. It stays in the pool, ready for the next spawn.
         if (this.light) {
-            // 1. Detach light from the mesh (so it survives mesh removal)
-            this.light.removeFromParent();
-            
-            // 2. Add it directly to the scene so it stays active
-            this.scene.add(this.light);
-            
-            // 3. Move it to the void so it affects nothing
-            this.light.position.set(0, -50000, 0);
-            
-            // 4. Do NOT set visible=false or intensity=0. 
-            // The renderer needs to think it's still doing work.
+            this.light.intensity = 0; 
+            this.light.position.set(0, -999, 0);
+            this.light = null;
         }
 
-        // Now we can remove the mesh without triggering a recompile
+        // 2. HIDE MESH (Soft remove)
+        this.mesh.visible = false;
         this.scene.remove(this.mesh);
         
-        // Logic
+        // 3. LOGIC
         const amount = this.config.value;
         const currentType = this.type;
         
