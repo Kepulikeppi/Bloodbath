@@ -48,7 +48,7 @@ export const Config = {
     MENU_CAMERA_SWAY: 0.5,
     
     // --- TEXTURE ASSETS ---
-    TEXTURE_PATH: './assets/textures/',
+    TEXTURE_PATH: 'https://pub-001995af37744801acc11c0d74cd4450.r2.dev/textures/',
     TEX_WALL: 'Bricks069_2K-JPG',
     TEX_FLOOR: 'PavingStones116_2K-JPG',
     TEX_CEILING: 'Asphalt013_1K-JPG',
