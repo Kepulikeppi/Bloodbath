@@ -2,15 +2,14 @@ import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Engine } from './Core/Engine.js';
 import { Input } from './Core/Input.js';
 import { Config } from './Config.js';
-import { UIConfig } from './UIConfig.js';
 import { AudioConfig } from './AudioConfig.js';
 import { MusicConfig } from './MusicConfig.js';
+import { UIConfig } from './UIConfig.js'; 
 import { AudioManager } from './Core/AudioManager.js';
 import { Minimap } from './Game/Minimap.js';
 import { WeaponConfig } from './WeaponConfig.js';
 import { GameState, state } from './Game/GameState.js';
 
-// Managers
 import { LoadingScreen } from './UI/LoadingScreen.js';
 import { LevelManager } from './Game/LevelManager.js';
 import { HUD } from './UI/HUD.js';
@@ -18,19 +17,14 @@ import { MusicPlayerUI } from './UI/MusicPlayerUI.js';
 import { Spawner } from './Game/Spawner.js';
 import { UIInitializer } from './UI/UIInitializer.js'; 
 
-// Loot System
 import { LootManager } from './Game/LootManager.js';
 import { Pickup } from './Game/Pickup.js';
-
-// Message box
 import { MessageLog } from './UI/MessageLog.js';
 
 console.log("1. Game Script Loaded");
 
-// --- 0. INIT UI TEXT ---
 UIInitializer.init();
 
-// --- 1. GET SETTINGS ---
 const urlParams = new URLSearchParams(window.location.search);
 const seed = urlParams.get('seed') || "DEFAULT";
 let currentLevel = 1; 
@@ -49,12 +43,11 @@ try {
     if(v !== null) savedVolume = parseFloat(v);
 } catch(e) {}
 
-// --- 2. DECLARE STATE ---
 let player = null;
 let weapon = null;
 let minimap = null;
 let enemies = []; 
-let pickups = []; 
+let pickups = []; // Global array tracked by update loop
 let exitObject = null; 
 let debrisSystem = null;
 let levelMeshes = []; 
@@ -64,11 +57,9 @@ let isLevelReady = false;
 let isDying = false; 
 let deathFallDirection = 0; 
 
-// --- 3. SETUP SYSTEMS ---
 const input = new Input();
 const raycaster = new THREE.Raycaster();
 
-// Audio
 const audioManager = new AudioManager();
 audioManager.setPlaylist(MusicConfig.PLAYLIST);
 audioManager.setVolume(savedVolume);
@@ -78,16 +69,12 @@ if(AudioConfig.SFX.PLAYER_DEATH) {
     l.load(AudioConfig.SFX.PLAYER_DEATH, (b) => audioManager.sfxBuffers['player_death'] = b);
 }
 
-// UI
 state.load();
 const hud = new HUD();
 const musicUI = new MusicPlayerUI(audioManager);
 const messageLog = new MessageLog();
 
-// Engine
 const engine = new Engine((delta) => {
-    
-    // A. DEATH SEQUENCE
     if (isDying) {
         if (engine.camera.position.y > 0.2) {
             engine.camera.position.y -= delta * 4.0; 
@@ -105,7 +92,6 @@ const engine = new Engine((delta) => {
 
     if (!gameActive) return;
     
-    // B. NORMAL GAME LOOP
     if (player && engine.controls.isLocked) {
         player.update(delta, input);
         
@@ -115,26 +101,23 @@ const engine = new Engine((delta) => {
 
         if (levelManager) levelManager.checkExit(player, exitObject);
         
-        // Update Weapon
         if (weapon) {
             const isMoving = input.keys.forward || input.keys.backward || input.keys.left || input.keys.right;
             weapon.update(delta, isMoving, engine.clock.elapsedTime);
         }
 
-        // Update Enemies
         if (enemies.length > 0 && mapData) {
              enemies.forEach(enemy => enemy.update(delta, engine.camera.position, mapData, enemies));
         }
         
-        // Update Pickups
+        // Pickups Update Loop
         if (pickups.length > 0) {
+            // Keep items that return false (not collected)
             pickups = pickups.filter(p => !p.update(delta, engine.camera.position));
         }
 
-        // Update Debris
         if (debrisSystem) debrisSystem.update(delta);
 
-        // Update Minimap
         if (minimap) {
             const exitPos = exitObject ? { x: exitObject.position.x, z: exitObject.position.z } : null;
             minimap.update(engine.camera.position, exitPos);
@@ -149,21 +132,16 @@ engine.renderer.domElement.id = 'game-canvas';
 audioManager.setCamera(engine.camera); 
 const levelManager = new LevelManager(engine, currentLevel, audioManager);
 
-// --- 4. ASYNC LOADING ---
 let mapData; 
 
 async function loadLevel() {
-    // Random seed fallback logic
     let currentSeed = Date.now() + "_" + Math.floor(Math.random() * 1000); 
 
     try {
         const res = await fetch('api/get_status.php');
         const data = await res.json();
         
-        if (data.seed) {
-            currentSeed = data.seed;
-        }
-
+        if (data.seed) currentSeed = data.seed;
         if (data.active) {
             currentLevel = data.level;
             if(levelManager) levelManager.currentLevel = currentLevel;
@@ -192,10 +170,13 @@ async function loadLevel() {
             
             loadingUI.update(60, UIConfig.LOADING.STEP_GEO);
 
-            import('./ProcGen/LevelBuilder.js').then(Module => {
+            import('./ProcGen/LevelBuilder.js').then(async Module => {
                 const builder = new Module.LevelBuilder(engine.scene);
                 builder.build(mapData);
                 
+                loadingUI.update(70, UIConfig.LOADING.STEP_ASSETS);
+                await builder.waitForLoad(); 
+
                 levelMeshes = [];
                 engine.scene.traverse(obj => {
                     if (obj.isInstancedMesh) levelMeshes.push(obj);
@@ -203,7 +184,8 @@ async function loadLevel() {
 
                 loadingUI.update(80, UIConfig.LOADING.STEP_SPAWN);
 
-                pickups = []; 
+                // FIX: Use .length = 0 to clear array while keeping reference, just in case
+                pickups.length = 0;
 
                 const entities = Spawner.spawnEntities(engine, mapData, generator, builder, audioManager);
                 player = entities.player;
@@ -211,17 +193,24 @@ async function loadLevel() {
                 enemies = entities.enemies;
                 exitObject = entities.exit;
                 
-                // FIX: Add spawned map loot to the game loop array
-                if (entities.pickups) {
-                    pickups = entities.pickups;
+                // FIX: Explicitly push spawned items to the global array
+                if (entities.pickups && entities.pickups.length > 0) {
+                    pickups.push(...entities.pickups);
+                    console.log(`[Game] Loaded ${pickups.length} map loot items.`);
                 }
                 
                 minimap = new Minimap(mapData);
                 
                 loadingUI.update(90, UIConfig.LOADING.STEP_SHADER);
 
+                if (entities.weapon && entities.weapon.flashLight) {
+                    entities.weapon.flashLight.intensity = 1.0;
+                }
                 engine.renderer.render(engine.scene, engine.camera);
-                
+                if (entities.weapon && entities.weapon.flashLight) {
+                    entities.weapon.flashLight.intensity = 0.001;
+                }
+
                 loadingUI.complete();
                 isLevelReady = true;
             });
@@ -232,7 +221,6 @@ async function loadLevel() {
 
 loadLevel();
 
-// --- 5. DEATH LOGIC ---
 function triggerGameOver() {
     isDying = true;
     deathFallDirection = Math.floor(Math.random() * 3);
@@ -269,7 +257,6 @@ function showDeathScreen() {
     document.body.style.cursor = 'default';
 }
 
-// --- 6. INPUT HANDLERS ---
 document.addEventListener('mousedown', (e) => {
     if (gameActive && !isDying && engine.controls.isLocked && weapon) {
         if (e.button === 0) { 
@@ -303,7 +290,6 @@ document.addEventListener('mousedown', (e) => {
                                 audioManager.playSFX('death', enemyInstance.mesh.position);
                                 enemies = enemies.filter(e => e !== enemyInstance);
                                 
-                                // LOOT DROP
                                 const type = enemyInstance.stats.enemyType;
                                 if (type) {
                                     const drop = LootManager.getDrop(type);
@@ -433,7 +419,11 @@ document.body.addEventListener('click', () => {
 
 window.addEventListener('loot-pickup', (e) => {
     const data = e.detail;
+    
+    // 1. UI Message
     messageLog.add(`${data.name} (+${data.value})`, data.color);
+
+    // 2. Play Sound
     if (data.sound) {
         audioManager.playSFX(data.sound);
     }

@@ -27,6 +27,7 @@ export class Engine {
         const ambient = new THREE.AmbientLight(Config.COLOR_AMBIENT, Config.AMBIENT_INTENSITY); 
         this.scene.add(ambient);
 
+        // FLASHLIGHT SETUP
         const flashlight = new THREE.SpotLight(Config.COLOR_FLASHLIGHT, Config.FL_INTENSITY);
         flashlight.angle = Config.FL_ANGLE;
         flashlight.penumbra = Config.FL_PENUMBRA;
@@ -47,7 +48,6 @@ export class Engine {
         this.camera.add(flashlight.target);
         this.scene.add(this.camera);
         
-        // Store reference for toggling
         this.flashlight = flashlight;
         this.flashlightOn = true;
 
@@ -73,7 +73,15 @@ export class Engine {
 
     toggleFlashlight() {
         this.flashlightOn = !this.flashlightOn;
-        this.flashlight.visible = this.flashlightOn;
+        
+        // PERFORMANCE FIX:
+        // Never toggle .visible or set intensity to absolute 0.
+        // Keeping it at 0.001 keeps the light "active" in the shader, preventing recompilation stutters.
+        if (this.flashlightOn) {
+            this.flashlight.intensity = Config.FL_INTENSITY;
+        } else {
+            this.flashlight.intensity = 0.001;
+        }
     }
 
     animate() {

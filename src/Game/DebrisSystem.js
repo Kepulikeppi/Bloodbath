@@ -27,7 +27,7 @@ export class DebrisSystem {
             roughness: 0.1,         
             metalness: 0.0,         
             opacity: 0.9,
-            side: THREE.DoubleSide // Ensure it's visible from any angle
+            side: THREE.DoubleSide
         });
 
         // Materials for Particles
@@ -40,7 +40,7 @@ export class DebrisSystem {
         this.chunkGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
         this.sprayGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
 
-        // --- 2. PARTICLE POOL (Flying stuff) ---
+        // --- 2. PARTICLE POOL ---
         this.particlePool = [];
         for (let i = 0; i < this.MAX_PARTICLES; i++) {
             const mesh = new THREE.Mesh(this.chunkGeo, this.fleshMat);
@@ -58,63 +58,81 @@ export class DebrisSystem {
             });
         }
 
-        // --- 3. DECAL POOL (Floor Stains) ---
-        // We pre-allocate ALL blood stains. No creating/destroying during gameplay.
+        // --- 3. DECAL POOL ---
         this.decalPool = [];
-        this.decalIndex = 0; // Circular buffer index
+        this.decalIndex = 0;
 
         for (let i = 0; i < this.MAX_DECALS; i++) {
             const mesh = new THREE.Mesh(this.decalGeo, this.bloodMaterial);
-            mesh.visible = false; // Start hidden
-            mesh.frustumCulled = false; // Always render if active (prevents flickering at edge of screen)
-            
-            // Optimization: Disable matrix auto update since they don't move once placed
+            mesh.visible = false; 
+            mesh.frustumCulled = false; 
             mesh.matrixAutoUpdate = false; 
-            
             this.scene.add(mesh);
             this.decalPool.push(mesh);
         }
+        
+        // Execute Shader Warmup immediately
+        this.warmup();
+    }
+
+    // === NEW: SHADER WARMUP ===
+    // Forces the GPU to compile shaders for blood/flesh/bone before gameplay starts.
+    warmup() {
+        // 1. Warmup Particle (Flesh)
+        const p1 = this.particlePool[0];
+        p1.mesh.material = this.fleshMat;
+        p1.mesh.visible = true;
+        p1.mesh.position.set(0, -500, 0); // Hide in void
+        
+        // 2. Warmup Particle (Bone)
+        const p2 = this.particlePool[1];
+        p2.mesh.material = this.boneMat;
+        p2.mesh.visible = true;
+        p2.mesh.position.set(0, -500, 0);
+
+        // 3. Warmup Decal
+        const d1 = this.decalPool[0];
+        d1.visible = true;
+        d1.position.set(0, -500, 0);
+        d1.updateMatrix();
+
+        // 4. Reset after a tiny delay (next frame)
+        // We use setTimeout 0 to let the renderer loop catch it once
+        setTimeout(() => {
+            p1.mesh.visible = false;
+            p2.mesh.visible = false;
+            d1.visible = false;
+        }, 100);
     }
 
     getFreeParticle() {
         for (let i = 0; i < this.MAX_PARTICLES; i++) {
             if (!this.particlePool[i].active) return this.particlePool[i];
         }
-        return this.particlePool[0]; // Overwrite oldest if full
+        return this.particlePool[0]; 
     }
 
     // --- SPAWN LOGIC ---
 
     spawnSplat(position, normal) {
-        // 1. Get the next decal in the pool (Circular)
         const mesh = this.decalPool[this.decalIndex];
         this.decalIndex = (this.decalIndex + 1) % this.MAX_DECALS;
 
-        // 2. Reset & Activate
         mesh.visible = true;
-        
-        // 3. Position
         mesh.position.copy(position);
         
-        // Slight offset based on surface normal to avoid Z-fighting
         const up = normal || new THREE.Vector3(0, 1, 0);
         const offset = up.clone().multiplyScalar(0.03);
         mesh.position.add(offset);
 
-        // 4. Orientation
-        // Look at a point "outwards" from the surface
         const target = mesh.position.clone().add(up);
         mesh.lookAt(target);
         
-        // Random rotation around Z (local axis)
         mesh.rotateZ(Math.random() * Math.PI * 2);
 
-        // 5. Scale
         const scale = 0.8 + Math.random() * 0.8;
         mesh.scale.set(scale, scale, 1);
 
-        // 6. FORCE UPDATE
-        // Since we disabled autoUpdate for performance, we must update manually once
         mesh.updateMatrix();
     }
 
@@ -163,7 +181,7 @@ export class DebrisSystem {
         p.mesh.scale.set(1, 1, 1);
         p.mesh.position.copy(pos);
         p.mesh.rotation.set(0, 0, 0);
-        p.mesh.matrixAutoUpdate = true; // Particles need to move
+        p.mesh.matrixAutoUpdate = true; 
         
         p.gravityScale = gravity;
         p.floorTimer = 10.0; 
@@ -186,7 +204,6 @@ export class DebrisSystem {
                     p.onFloor = true;
                     
                     if (Math.random() > 0.6) {
-                        // Pass Up vector (0,1,0) for floor stains
                         this.spawnSplat(p.mesh.position, new THREE.Vector3(0,1,0));
                     }
                 }

@@ -13,11 +13,12 @@ export const UIConfig = {
         LABEL_LEVEL_PREFIX: "LEVEL "
     },
 
-    // Loading Screen
+    // Loading Screen Steps
     LOADING: {
         TEXT_INIT: "INITIALIZING...",
         STEP_GEN: "GENERATING SECTOR...",
         STEP_GEO: "BUILDING GEOMETRY...",
+        STEP_ASSETS: "DOWNLOADING ASSETS...", // NEW
         STEP_SPAWN: "SPAWNING ENTITIES...",
         STEP_SHADER: "COMPILING SHADERS..."
     },
@@ -36,7 +37,7 @@ export const UIConfig = {
         LABEL_FPS: "FPS:"
     },
 
-    // Controls Overlay (Key -> Description)
+    // Controls Overlay
     CONTROLS: [
         { key: "ESC", desc: "Release mouse / Pause game" },
         { key: "F", desc: "Flashlight" },
@@ -53,8 +54,8 @@ export const UIConfig = {
 
     // Level Complete
     LEVEL_END: {
-        TITLE_SUFFIX: " CLEARED", // "LEVEL 1 CLEARED"
-        BTN_UPLINKING: "LOADING...",
+        TITLE_SUFFIX: " CLEARED", 
+        BTN_UPLINKING: "UPLINKING...",
         BTN_ENTER_PREFIX: "ENTER LEVEL ",
         BTN_ERROR_SERVER: "UPLINK ERROR (RETRY)",
         BTN_ERROR_NET: "CONNECTION LOST (FORCE RELOAD)",

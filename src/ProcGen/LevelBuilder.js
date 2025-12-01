@@ -5,9 +5,24 @@ import { GreedyMesher } from '../Utils/GreedyMesher.js';
 export class LevelBuilder {
     constructor(scene) {
         this.scene = scene;
-        this.loader = new THREE.TextureLoader();
+        
+        // FIX: Use LoadingManager to track texture downloads
+        this.manager = new THREE.LoadingManager();
+        this.loader = new THREE.TextureLoader(this.manager);
+        
         this.geometries = [];
         this.materials = [];
+    }
+
+    // NEW: Async helper to wait for textures
+    waitForLoad() {
+        return new Promise((resolve) => {
+            // If everything is already loaded (or cached), onLoad fires immediately.
+            // If not, it waits for the pending requests from build().
+            this.manager.onLoad = () => {
+                resolve();
+            };
+        });
     }
 
     build(mapData) {
@@ -19,26 +34,25 @@ export class LevelBuilder {
 
         console.log(`[LevelBuilder] Starting 3D build...`);
 
-        // 1. RUN MESHER (New Logic)
+        // 1. RUN MESHER
         const mesher = new GreedyMesher(mapData, WALL_HEIGHT);
         const geometryData = mesher.generateGeometry();
 
-        // 2. LOAD MATERIALS
+        // 2. LOAD MATERIALS (This now registers tasks with this.manager)
         const wallMat = this.loadMaterial(TEXTURE_PATH, WALL_ASSET, WALL_HEIGHT);
         const floorMat = this.loadMaterial(TEXTURE_PATH, FLOOR_ASSET, 1);
         const ceilingMat = this.loadMaterial(TEXTURE_PATH, CEIL_ASSET, 1);
 
         // 3. BUILD GEOMETRY
-        // We no longer subdivide here because the mesher does 1x1 tiles for height accuracy.
-        // Optimization: We could merge meshes later, but 1x1 BufferGeometry is fast enough for now.
-        
         this.buildVerticalSurfaces(geometryData.walls, wallMat);
         this.buildHorizontalSurfaces(geometryData.floors, floorMat, false); 
         this.buildHorizontalSurfaces(geometryData.ceilings, ceilingMat, true); 
 
-        console.log(`[LevelBuilder] Build complete.`);
+        console.log(`[LevelBuilder] Geometry generated. Waiting for textures...`);
     }
 
+    // ... [buildVerticalSurfaces, buildHorizontalSurfaces, createMesh, getFaceNormal KEEP AS IS] ...
+    
     buildVerticalSurfaces(walls, material) {
         const allVertices = [];
         const allNormals = [];
@@ -47,61 +61,35 @@ export class LevelBuilder {
         let indexOffset = 0;
 
         walls.forEach(w => {
-            // w contains: x, z, y (bottom), h (height), face
             const { x, z, y, h, face } = w;
-            
             let v0, v1, v2, v3;
-            // UV Repeat: width is always 1, height varies
             const uRep = 1;
             const vRep = h; 
 
-            // Standard coordinate logic
-            // Note: x,z are grid indices. y is actual height.
             switch (face) {
-                case 'north': // -Z side of tile
-                    v0 = [x + 1, y, z];
-                    v1 = [x, y, z];
-                    v2 = [x, y + h, z];
-                    v3 = [x + 1, y + h, z];
+                case 'north':
+                    v0 = [x + 1, y, z]; v1 = [x, y, z]; v2 = [x, y + h, z]; v3 = [x + 1, y + h, z];
                     break;
-                case 'south': // +Z side of tile
-                    v0 = [x, y, z + 1];
-                    v1 = [x + 1, y, z + 1];
-                    v2 = [x + 1, y + h, z + 1];
-                    v3 = [x, y + h, z + 1];
+                case 'south':
+                    v0 = [x, y, z + 1]; v1 = [x + 1, y, z + 1]; v2 = [x + 1, y + h, z + 1]; v3 = [x, y + h, z + 1];
                     break;
-                case 'east': // +X side
-                    v0 = [x + 1, y, z + 1];
-                    v1 = [x + 1, y, z];
-                    v2 = [x + 1, y + h, z];
-                    v3 = [x + 1, y + h, z + 1];
+                case 'east':
+                    v0 = [x + 1, y, z + 1]; v1 = [x + 1, y, z]; v2 = [x + 1, y + h, z]; v3 = [x + 1, y + h, z + 1];
                     break;
-                case 'west': // -X side
-                    v0 = [x, y, z];
-                    v1 = [x, y, z + 1];
-                    v2 = [x, y + h, z + 1];
-                    v3 = [x, y + h, z];
+                case 'west':
+                    v0 = [x, y, z]; v1 = [x, y, z + 1]; v2 = [x, y + h, z + 1]; v3 = [x, y + h, z];
                     break;
             }
 
             allVertices.push(...v0, ...v1, ...v2, ...v3);
-
             const n = this.getFaceNormal(face);
             for (let i = 0; i < 4; i++) allNormals.push(...n);
-
-            // UVs: Standard quad mapping
             allUvs.push(0, 0, uRep, 0, uRep, vRep, 0, vRep);
-
-            allIndices.push(
-                indexOffset, indexOffset + 1, indexOffset + 2,
-                indexOffset, indexOffset + 2, indexOffset + 3
-            );
+            allIndices.push(indexOffset, indexOffset + 1, indexOffset + 2, indexOffset, indexOffset + 2, indexOffset + 3);
             indexOffset += 4;
         });
 
-        if (allVertices.length > 0) {
-            this.createMesh(allVertices, allNormals, allUvs, allIndices, material);
-        }
+        if (allVertices.length > 0) this.createMesh(allVertices, allNormals, allUvs, allIndices, material);
     }
 
     buildHorizontalSurfaces(list, material, isCeiling) {
@@ -110,43 +98,27 @@ export class LevelBuilder {
         const allUvs = [];
         const allIndices = [];
         let indexOffset = 0;
-
         const normal = isCeiling ? [0, -1, 0] : [0, 1, 0];
 
         list.forEach(item => {
             const { x, z, y } = item;
-            const w = 1; // Fixed 1x1 for now
-            const d = 1;
-
+            const w = 1; const d = 1;
             let v0, v1, v2, v3;
 
             if (isCeiling) {
-                v0 = [x, y, z];
-                v1 = [x + w, y, z];
-                v2 = [x + w, y, z + d];
-                v3 = [x, y, z + d];
-            } else { // Floor
-                v0 = [x, y, z + d];
-                v1 = [x + w, y, z + d];
-                v2 = [x + w, y, z];
-                v3 = [x, y, z];
+                v0 = [x, y, z]; v1 = [x + w, y, z]; v2 = [x + w, y, z + d]; v3 = [x, y, z + d];
+            } else {
+                v0 = [x, y, z + d]; v1 = [x + w, y, z + d]; v2 = [x + w, y, z]; v3 = [x, y, z];
             }
 
             allVertices.push(...v0, ...v1, ...v2, ...v3);
             for (let i = 0; i < 4; i++) allNormals.push(...normal);
-
             allUvs.push(0, 0, 1, 0, 1, 1, 0, 1);
-
-            allIndices.push(
-                indexOffset, indexOffset + 1, indexOffset + 2,
-                indexOffset, indexOffset + 2, indexOffset + 3
-            );
+            allIndices.push(indexOffset, indexOffset + 1, indexOffset + 2, indexOffset, indexOffset + 2, indexOffset + 3);
             indexOffset += 4;
         });
 
-        if (allVertices.length > 0) {
-            this.createMesh(allVertices, allNormals, allUvs, allIndices, material);
-        }
+        if (allVertices.length > 0) this.createMesh(allVertices, allNormals, allUvs, allIndices, material);
     }
 
     createMesh(vertices, normals, uvs, indices, material) {
@@ -156,7 +128,6 @@ export class LevelBuilder {
         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geometry.setIndex(indices);
         geometry.computeTangents();
-
         const mesh = new THREE.Mesh(geometry, material);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -178,6 +149,7 @@ export class LevelBuilder {
         const fullPath = `${basePath}${assetName}`;
         const onError = (err) => { console.error(`[TEXTURE ERROR] Could not load: ${fullPath}`); };
 
+        // Calls are now tracked by this.manager
         const colorMap = this.loader.load(`${fullPath}_Color.jpg`, undefined, undefined, onError);
         const normalMap = this.loader.load(`${fullPath}_NormalGL.jpg`, undefined, undefined, onError);
         const roughMap = this.loader.load(`${fullPath}_Roughness.jpg`, undefined, undefined, onError);

@@ -20,8 +20,7 @@ export class Enemy {
         this.isDead = false;
         this.isAggro = false;
         this.attackTimer = 0;
-        this.flashTimer = 0;
-
+        
         // 3. CONTAINER
         this.mesh = new THREE.Group();
         this.mesh.position.set(x + 0.5, 0, z + 0.5);
@@ -59,9 +58,6 @@ export class Enemy {
             const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
             rightEye.position.set(-0.15, 0.05, size/2 + 0.02);
             
-            leftEye.userData = { ignoreFlash: true };
-            rightEye.userData = { ignoreFlash: true };
-
             body.add(leftEye);
             body.add(rightEye);
             
@@ -75,30 +71,13 @@ export class Enemy {
         this.isAggro = true; 
         this.hp -= amount;
 
-        this.flashTimer = 0.1;
-        this.applyFlash(true);
+        // Flash logic removed.
 
         if (this.hp <= 0) {
             this.die();
             return true;
         }
         return false;
-    }
-
-    applyFlash(isWhite) {
-        this.mesh.traverse((child) => {
-            if (child.isMesh && child.material && child.material.emissive) {
-                if (child.userData.ignoreFlash) return;
-
-                if (isWhite) {
-                    child.material.emissive.setHex(0xffffff);
-                    child.material.emissiveIntensity = 1.0;
-                } else {
-                    child.material.emissive.setHex(this.stats.emissive || 0x000000);
-                    child.material.emissiveIntensity = 0.5;
-                }
-            }
-        });
     }
 
     die() {
@@ -119,13 +98,9 @@ export class Enemy {
     update(delta, playerPos, mapData, allEnemies = []) {
         if (this.isDead) return;
 
-        if (this.flashTimer > 0) {
-            this.flashTimer -= delta;
-            if (this.flashTimer <= 0) this.applyFlash(false);
-        }
-
         if (this.attackTimer > 0) this.attackTimer -= delta;
 
+        // DISTANCE CHECK
         const dx = playerPos.x - this.mesh.position.x;
         const dz = playerPos.z - this.mesh.position.z;
         const dist2D = Math.sqrt(dx*dx + dz*dz);
@@ -210,7 +185,6 @@ export class Enemy {
         if (gridZ < 0 || gridZ >= mapData.length || gridX < 0 || gridX >= mapData[0].length) {
             return true;
         }
-        // FIX: Check type property. 0 = Floor.
         return mapData[gridZ][gridX].type !== 0;
     }
 }

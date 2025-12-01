@@ -1,9 +1,10 @@
 import { Config } from '../Config.js';
+import { UIConfig } from '../UIConfig.js';
 import { DungeonGenerator } from '../ProcGen/DungeonGenerator.js';
 import { LevelBuilder } from '../ProcGen/LevelBuilder.js';
 import { Spawner } from './Spawner.js';
 import { DebrisSystem } from './DebrisSystem.js';
-import { state } from './GameState.js'; // Added to access runStats
+import { state } from './GameState.js'; 
 
 export class LevelManager {
     constructor(engine, loadingUI, audioManager) {
@@ -11,14 +12,12 @@ export class LevelManager {
         this.loadingUI = loadingUI;
         this.audioManager = audioManager;
         
-        // UI Elements
         this.ui = document.getElementById('level-screen');
         this.nextBtn = document.getElementById('btn-next-level');
         
         this.isLevelFinished = false;
         this.currentLevel = 1; 
 
-        // Initial Button Setup
         if (this.nextBtn) {
             const newBtn = this.nextBtn.cloneNode(true);
             this.nextBtn.parentNode.replaceChild(newBtn, this.nextBtn);
@@ -39,11 +38,11 @@ export class LevelManager {
         this.currentLevel = level;
         this.isLevelFinished = false;
         
-        if(this.loadingUI) this.loadingUI.update(10, "GENERATING SECTOR...");
+        if(this.loadingUI) this.loadingUI.update(10, UIConfig.LOADING.STEP_GEN);
 
         setTimeout(() => {
             const debrisSystem = new DebrisSystem(this.engine.scene); 
-            if(this.loadingUI) this.loadingUI.update(30, "GENERATING SECTOR...");
+            if(this.loadingUI) this.loadingUI.update(30, UIConfig.LOADING.STEP_GEN);
 
             const levelScale = 1 + (this.currentLevel * 0.1);
             const mapWidth = Math.floor(Config.MAP_WIDTH * levelScale);
@@ -54,43 +53,111 @@ export class LevelManager {
             const generator = new DungeonGenerator(seed, mapWidth, mapHeight);
             const mapData = generator.generate();
             
-            if(this.loadingUI) this.loadingUI.update(60, "BUILDING GEOMETRY...");
+            if(this.loadingUI) this.loadingUI.update(60, UIConfig.LOADING.STEP_GEO);
 
-            const builder = new LevelBuilder(this.engine.scene);
-            builder.build(mapData);
-            
-            const levelMeshes = [];
-            this.engine.scene.traverse(obj => {
-                if (obj.isInstancedMesh) levelMeshes.push(obj);
+            import('./ProcGen/LevelBuilder.js').then(async Module => {
+                const builder = new Module.LevelBuilder(this.engine.scene);
+                builder.build(mapData);
+                
+                if(this.loadingUI) this.loadingUI.update(70, UIConfig.LOADING.STEP_ASSETS);
+                await builder.waitForLoad(); 
+
+                const levelMeshes = [];
+                this.engine.scene.traverse(obj => {
+                    if (obj.isInstancedMesh) levelMeshes.push(obj);
+                });
+
+                if(this.loadingUI) this.loadingUI.update(80, UIConfig.LOADING.STEP_SPAWN);
+
+                const entities = Spawner.spawnEntities(
+                    this.engine, 
+                    mapData, 
+                    generator, 
+                    builder, 
+                    this.audioManager
+                );
+
+                if(this.loadingUI) this.loadingUI.update(90, UIConfig.LOADING.STEP_SHADER);
+
+                // === CORRECTED FIX: TACTICAL FLASHLIGHT WARMUP ===
+                
+                // 1. Identify the Main Tactical Flashlight (from Engine)
+                const tacticalFlash = this.engine.flashlight;
+                const startRotY = this.engine.camera.rotation.y;
+                let originalIntensity = 0;
+                let originalAngle = 0;
+
+                // 2. Disable Frustum Culling globally (Force Geometry Upload)
+                const cullingState = new Map();
+                this.engine.scene.traverse(obj => {
+                    if (obj.isMesh) {
+                        cullingState.set(obj, obj.frustumCulled);
+                        obj.frustumCulled = false; 
+                    }
+                });
+
+                // 3. Super-Charge the Tactical Flashlight
+                // We make it wide and bright to hit all walls in the frustum
+                if (tacticalFlash) {
+                    originalIntensity = tacticalFlash.intensity;
+                    originalAngle = tacticalFlash.angle;
+                    
+                    tacticalFlash.intensity = 1.0; 
+                    // Make it wide enough to catch corners, but not so wide it breaks the shadow map projection
+                    tacticalFlash.angle = Math.PI / 2.5; 
+                    tacticalFlash.updateMatrixWorld(true);
+                    
+                    // Reset shadow map to force clean render
+                    if (tacticalFlash.shadow && tacticalFlash.shadow.map) {
+                        tacticalFlash.shadow.map.dispose();
+                        tacticalFlash.shadow.needsUpdate = true;
+                    }
+                }
+
+                // 4. Force Shader Compilation
+                this.engine.renderer.compile(this.engine.scene, this.engine.camera);
+
+                // 5. THE SPIN CYCLE
+                // Rotate camera 360 degrees in 4 steps.
+                // This forces the SpotLight (attached to camera) to project shadows 
+                // on the North, East, South, and West walls.
+                for(let i = 0; i < 4; i++) {
+                    this.engine.camera.rotation.y = startRotY + (i * (Math.PI / 2));
+                    this.engine.camera.updateMatrixWorld(true);
+                    this.engine.renderer.render(this.engine.scene, this.engine.camera);
+                }
+
+                // 6. Restore Everything
+                this.engine.camera.rotation.y = startRotY;
+                this.engine.camera.updateMatrixWorld(true);
+
+                if (tacticalFlash) {
+                    // Restore to previous state (Engine defaults to On or KeepAlive)
+                    tacticalFlash.intensity = originalIntensity > 0.1 ? originalIntensity : 0.001; 
+                    tacticalFlash.angle = originalAngle;
+                }
+
+                this.engine.scene.traverse(obj => {
+                    if (obj.isMesh && cullingState.has(obj)) {
+                        obj.frustumCulled = cullingState.get(obj);
+                    }
+                });
+                // =================================================
+
+                if(this.loadingUI) this.loadingUI.complete();
+
+                onComplete({
+                    player: entities.player,
+                    weapon: entities.weapon,
+                    enemies: entities.enemies,
+                    exitObject: entities.exit,
+                    pickups: entities.pickups || [],
+                    minimapData: mapData,
+                    debrisSystem: debrisSystem,
+                    levelMeshes: levelMeshes,
+                    generator: generator 
+                });
             });
-
-            if(this.loadingUI) this.loadingUI.update(80, "SPAWNING ENTITIES...");
-
-            const entities = Spawner.spawnEntities(
-                this.engine, 
-                mapData, 
-                generator, 
-                builder, 
-                this.audioManager
-            );
-
-            if(this.loadingUI) this.loadingUI.update(90, "COMPILING SHADERS...");
-
-            this.engine.renderer.render(this.engine.scene, this.engine.camera);
-            
-            if(this.loadingUI) this.loadingUI.complete();
-
-            onComplete({
-                player: entities.player,
-                weapon: entities.weapon,
-                enemies: entities.enemies,
-                exitObject: entities.exit,
-                minimapData: mapData,
-                debrisSystem: debrisSystem,
-                levelMeshes: levelMeshes,
-                generator: generator 
-            });
-            
         }, 100);
     }
 
@@ -109,11 +176,9 @@ export class LevelManager {
         if (this.isLevelFinished) return;
         this.isLevelFinished = true;
 
-        // 1. Pause Controls
         this.engine.controls.unlock();
         document.body.style.cursor = 'default';
         
-        // 2. Populate Stats (Fixed to match new HTML)
         if (this.ui) {
             this.ui.style.display = 'flex';
             
@@ -130,35 +195,33 @@ export class LevelManager {
             if (elTime) elTime.innerText = state.getRunTime();
         }
 
-        // 3. Handle Backend Sync (Optimistic UI)
         if (this.nextBtn) {
-            const nextLvl = this.currentLevel + 1;
+            this.nextBtn.disabled = true;
+            this.nextBtn.style.opacity = "0.5";
+            this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_UPLINKING;
 
-            // === A. IMMEDIATE UPDATE ===
-            // Don't disable the button or show "Uplinking".
-            // Assume success and show the next level prompt immediately.
-            this.nextBtn.innerText = "ENTER LEVEL " + nextLvl;
-            this.nextBtn.disabled = false;
-            this.nextBtn.style.opacity = "1.0";
-
-            // Update Cache Immediately so if they click fast, the loading screen is correct
-            sessionStorage.setItem('bloodbath_level_cache', nextLvl);
-
-            // === B. BACKGROUND SYNC ===
             fetch('api/level_complete.php')
                 .then(res => res.json())
                 .then(data => {
-                    if (data.status !== 'ok') {
-                        // Only show error if it actually failed
+                    if (data.status === 'ok') {
+                        const nextLvl = this.currentLevel + 1;
+                        sessionStorage.setItem('bloodbath_level_cache', nextLvl);
+
+                        this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ENTER_PREFIX + nextLvl;
+                        this.nextBtn.disabled = false;
+                        this.nextBtn.style.opacity = "1.0";
+                    } else {
                         console.error("Server Error:", data);
-                        this.nextBtn.innerText = "SYNC ERROR (TRY AGAIN)";
-                        this.nextBtn.disabled = false; // Allow retry via reload
+                        this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ERROR_SERVER;
+                        this.nextBtn.disabled = false;
+                        this.nextBtn.style.opacity = "1.0";
                     }
                 })
                 .catch(err => {
                     console.error("Level Sync Failed", err);
-                    // We don't revert UI here because a reload will fix it anyway,
-                    // and flashing "Error" might just confuse them if it was a minor glitch.
+                    this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ERROR_NET;
+                    this.nextBtn.disabled = false;
+                    this.nextBtn.style.opacity = "1.0";
                 });
         }
     }
