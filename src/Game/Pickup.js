@@ -14,6 +14,7 @@ const MAX_LIGHTS = 32;
 const LightPool = [];
 let LightIndex = 0;
 let PoolInitialized = false;
+const _direction = new THREE.Vector3();// Reusable vector for calculations (avoids garbage collection)
 
 export class Pickup {
     constructor(scene, type, position) {
@@ -95,19 +96,27 @@ export class Pickup {
         }
     }
 
-    update(delta, playerPos) {
-        if (!this.isActive) return false;
-
-        this.time += delta;
-        this.mesh.rotation.y += delta;
-        this.mesh.position.y = 0.5 + Math.sin(this.time * 2.5) * 0.15;
-        this.mesh.rotation.z = Math.sin(this.time) * 0.1;
-
-        const dist = this.mesh.position.distanceTo(playerPos);
-        if (dist < 1.5) {
+    update(playerPos, deltaTime) {
+        if (!this.mesh || this.collected) return false;
+        
+        // Horizontal distance only (ignore height difference)
+        const dx = playerPos.x - this.mesh.position.x;
+        const dz = playerPos.z - this.mesh.position.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        
+        // Collected - close enough horizontally
+        if (dist < 0.5) {
             this.collect();
-            return true; 
+            return true;
         }
+        
+        // Magnet radius - suck toward player
+        if (dist < 1.5) {
+            _direction.set(dx, 0, dz).normalize();
+            const speed = (2.5 - dist) * 8 * deltaTime;
+            this.mesh.position.addScaledVector(_direction, speed);
+        }
+        
         return false;
     }
 

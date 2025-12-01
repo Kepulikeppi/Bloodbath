@@ -55,7 +55,7 @@ export class LevelManager {
             
             if(this.loadingUI) this.loadingUI.update(60, UIConfig.LOADING.STEP_GEO);
 
-            import('./ProcGen/LevelBuilder.js').then(async Module => {
+            import('../ProcGen/LevelBuilder.js').then(async Module => {
                 const builder = new Module.LevelBuilder(this.engine.scene);
                 builder.build(mapData);
                 
@@ -64,7 +64,7 @@ export class LevelManager {
 
                 const levelMeshes = [];
                 this.engine.scene.traverse(obj => {
-                    if (obj.isInstancedMesh) levelMeshes.push(obj);
+                    if (obj.isMesh) levelMeshes.push(obj);
                 });
 
                 if(this.loadingUI) this.loadingUI.update(80, UIConfig.LOADING.STEP_SPAWN);
@@ -79,15 +79,14 @@ export class LevelManager {
 
                 if(this.loadingUI) this.loadingUI.update(90, UIConfig.LOADING.STEP_SHADER);
 
-                // === CORRECTED FIX: TACTICAL FLASHLIGHT WARMUP ===
+                // === SHADOW MAP WARMUP ===
                 
-                // 1. Identify the Main Tactical Flashlight (from Engine)
                 const tacticalFlash = this.engine.flashlight;
                 const startRotY = this.engine.camera.rotation.y;
-                let originalIntensity = 0;
-                let originalAngle = 0;
+                let originalIntensity = Config.FL_INTENSITY;
+                let originalAngle = Config.FL_ANGLE;
 
-                // 2. Disable Frustum Culling globally (Force Geometry Upload)
+                // 1. Disable Frustum Culling globally
                 const cullingState = new Map();
                 this.engine.scene.traverse(obj => {
                     if (obj.isMesh) {
@@ -96,43 +95,39 @@ export class LevelManager {
                     }
                 });
 
-                // 3. Super-Charge the Tactical Flashlight
-                // We make it wide and bright to hit all walls in the frustum
+                // 2. Super-Charge the Tactical Flashlight
                 if (tacticalFlash) {
                     originalIntensity = tacticalFlash.intensity;
                     originalAngle = tacticalFlash.angle;
                     
-                    tacticalFlash.intensity = 1.0; 
-                    // Make it wide enough to catch corners, but not so wide it breaks the shadow map projection
-                    tacticalFlash.angle = Math.PI / 2.5; 
+                    tacticalFlash.intensity = Config.FL_INTENSITY;
+                    tacticalFlash.angle = Math.PI / 2; // Wide angle for maximum coverage
                     tacticalFlash.updateMatrixWorld(true);
-                    
-                    // Reset shadow map to force clean render
-                    if (tacticalFlash.shadow && tacticalFlash.shadow.map) {
-                        tacticalFlash.shadow.map.dispose();
-                        tacticalFlash.shadow.needsUpdate = true;
-                    }
                 }
 
-                // 4. Force Shader Compilation
-                this.engine.renderer.compile(this.engine.scene, this.engine.camera);
+                // 3. Force shadow map allocation with initial render
+                if (tacticalFlash && tacticalFlash.shadow) {
+                    tacticalFlash.shadow.needsUpdate = true;
+                }
+                this.engine.renderer.shadowMap.needsUpdate = true;
+                this.engine.renderer.render(this.engine.scene, this.engine.camera);
 
-                // 5. THE SPIN CYCLE
-                // Rotate camera 360 degrees in 4 steps.
-                // This forces the SpotLight (attached to camera) to project shadows 
-                // on the North, East, South, and West walls.
-                for(let i = 0; i < 4; i++) {
-                    this.engine.camera.rotation.y = startRotY + (i * (Math.PI / 2));
+                // 4. Spin to render shadows in all 8 directions
+                for (let i = 0; i < 8; i++) {
+                    this.engine.camera.rotation.y = startRotY + (i * (Math.PI / 4));
                     this.engine.camera.updateMatrixWorld(true);
+                    
+                    if (tacticalFlash && tacticalFlash.shadow) {
+                        tacticalFlash.shadow.needsUpdate = true;
+                    }
                     this.engine.renderer.render(this.engine.scene, this.engine.camera);
                 }
 
-                // 6. Restore Everything
+                // 5. Restore Everything
                 this.engine.camera.rotation.y = startRotY;
                 this.engine.camera.updateMatrixWorld(true);
 
                 if (tacticalFlash) {
-                    // Restore to previous state (Engine defaults to On or KeepAlive)
                     tacticalFlash.intensity = originalIntensity > 0.1 ? originalIntensity : 0.001; 
                     tacticalFlash.angle = originalAngle;
                 }
@@ -142,7 +137,9 @@ export class LevelManager {
                         obj.frustumCulled = cullingState.get(obj);
                     }
                 });
-                // =================================================
+
+                this.engine.renderer.shadowMap.needsUpdate = false;
+                // =========================
 
                 if(this.loadingUI) this.loadingUI.complete();
 

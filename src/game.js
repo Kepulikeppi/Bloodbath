@@ -113,8 +113,8 @@ const engine = new Engine((delta) => {
         // Pickups Update Loop
         if (pickups.length > 0) {
             // Keep items that return false (not collected)
-            pickups = pickups.filter(p => !p.update(delta, engine.camera.position));
-        }
+            pickups = pickups.filter(p => !p.update(engine.camera.position, delta));
+}
 
         if (debrisSystem) debrisSystem.update(delta);
 

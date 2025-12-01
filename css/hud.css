@@ -118,11 +118,11 @@
     font-size: 1.9rem;
     margin-top: 5px;
     opacity: 0;
-    animation: fadeLog 1s forwards; 
+    animation: fadeLog 2s forwards; 
 }
 
 @keyframes fadeLog {
     0% { opacity: 1; transform: translateY(0); }
-    50% { opacity: 1; transform: translateY(0); } 
+    10% { opacity: 1; transform: translateY(0); } 
     100% { opacity: 0; transform: translateY(-20px); } 
 }

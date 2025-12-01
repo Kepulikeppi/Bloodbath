@@ -21,6 +21,6 @@ export class MessageLog {
         // Auto remove after animation finishes (1s defined in CSS)
         setTimeout(() => {
             if (msg.parentNode) msg.parentNode.removeChild(msg);
-        }, 1000); 
+        }, 2000); 
     }
 }
