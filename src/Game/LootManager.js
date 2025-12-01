@@ -9,8 +9,6 @@ export const EnemyTypes = {
 export class LootManager {
     /**
      * Decides what loot to drop based on enemy type.
-     * @param {string} enemyType - BIO, MECH, or CYBORG
-     * @returns {string|null} - The LootType string or null if nothing drops
      */
     static getDrop(enemyType) {
         const roll = Math.random(); // 0.0 to 1.0
@@ -27,7 +25,33 @@ export class LootManager {
         }
     }
 
-    // === DROP TABLES ===
+    /**
+     * Decides what loot to spawn on the map based on room tier.
+     * @param {string} tier - 'COMMON' or 'RARE'
+     */
+    static getMapLoot(tier) {
+        const roll = Math.random();
+
+        if (tier === 'COMMON') {
+            // Standard loot: Scrap, Ammo, Health
+            if (roll < 0.40) return LootTypes.SCRAP;
+            if (roll < 0.80) return LootManager.getRandomAmmo();
+            if (roll < 0.90) return LootTypes.HEALTH;
+            return LootTypes.ELEC; // 10% Electronics
+        }
+
+        if (tier === 'RARE') {
+            // Branch/End loot: XP, Chips, Batteries, Full Health
+            if (roll < 0.40) return LootTypes.XP;
+            if (roll < 0.60) return LootTypes.CHIP;
+            if (roll < 0.80) return LootTypes.BATTERY;
+            return LootTypes.RAGE; // 20% Rage Pills
+        }
+
+        return null;
+    }
+
+    // === ENEMY DROP TABLES ===
 
     static rollBio(roll) {
         // 30% Nothing
@@ -61,7 +85,6 @@ export class LootManager {
     }
 
     static rollCyborg(roll) {
-        // Cyborgs have a wider pool (Ammo + Mats)
         // 20% Nothing
         if (roll < 0.20) return null;
 
@@ -73,14 +96,13 @@ export class LootManager {
             return Math.random() > 0.5 ? LootTypes.SCRAP : LootTypes.ELEC;
         }
 
-        // 10% Special (Health or Battery)
+        // 10% Special
         return Math.random() > 0.5 ? LootTypes.HEALTH : LootTypes.BATTERY;
     }
 
     // === HELPERS ===
 
     static getRandomAmmo() {
-        // Weighted ammo rolls
         const r = Math.random();
         if (r < 0.60) return LootTypes.AMMO_9MM;   // 60% 9mm
         if (r < 0.85) return LootTypes.AMMO_SHELL; // 25% Shells

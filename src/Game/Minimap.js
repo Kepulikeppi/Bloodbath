@@ -20,11 +20,11 @@ export class Minimap {
         this.staticCtx = this.staticCanvas.getContext('2d');
         this.isCacheGenerated = false;
         
-        // 4. THROTTLING - limit update frequency
+        // 4. THROTTLING
         this.lastMinimapUpdate = 0;
         this.lastFullMapUpdate = 0;
-        this.minimapInterval = 50;   // 20 FPS for minimap
-        this.fullMapInterval = 100;  // 10 FPS for full map
+        this.minimapInterval = 50;   
+        this.fullMapInterval = 100;  
     }
 
     updateTileSize() {
@@ -77,7 +77,10 @@ export class Minimap {
 
         for (let y = 0; y < mapH; y++) {
             for (let x = 0; x < mapW; x++) {
-                if (this.map[y][x] === 1) {
+                // FIX: Check .type instead of raw value
+                const tile = this.map[y][x];
+                // Type 1 = Wall, Type 2 = Chasm (Visual Wall)
+                if (tile.type !== 0) { 
                     ctx.fillStyle = "#440000";
                     ctx.fillRect(offsetX + (x * cellSize), offsetY + (y * cellSize), cellSize + 0.5, cellSize + 0.5);
                 } else {
@@ -93,7 +96,6 @@ export class Minimap {
 
     // --- 1. SMALL RADAR UPDATE (THROTTLED) ---
     update(playerPos, exitPos) {
-        // Throttle updates
         const now = performance.now();
         if (now - this.lastMinimapUpdate < this.minimapInterval) {
             return;
@@ -104,7 +106,6 @@ export class Minimap {
         const width = this.canvas.width;
         const height = this.canvas.height;
 
-        // Clear
         ctx.fillStyle = "rgba(0, 20, 0, 0.9)"; 
         ctx.fillRect(0, 0, width, height);
 
@@ -118,7 +119,8 @@ export class Minimap {
                 const drawY = (y - pz + this.range) * this.tileSize;
 
                 if (y >= 0 && y < this.map.length && x >= 0 && x < this.map[0].length) {
-                    if (this.map[y][x] === 1) {
+                    // FIX: Check .type instead of raw value
+                    if (this.map[y][x].type !== 0) { 
                         ctx.fillStyle = "#550000"; 
                         ctx.fillRect(drawX, drawY, this.tileSize + 0.6, this.tileSize + 0.6); 
                     } 
@@ -162,14 +164,12 @@ export class Minimap {
     updateFull(playerPos, exitPos) {
         if (!this.isFullMapOpen()) return;
 
-        // Throttle updates
         const now = performance.now();
         if (now - this.lastFullMapUpdate < this.fullMapInterval) {
             return;
         }
         this.lastFullMapUpdate = now;
 
-        // Generate cache on first run
         if (!this.isCacheGenerated) {
             this.generateStaticMap();
         }
@@ -180,13 +180,9 @@ export class Minimap {
         
         const { cellSize, offsetX, offsetY } = this.fullMapMetrics;
 
-        // 1. Clear
         ctx.clearRect(0, 0, width, height);
-
-        // 2. Draw Cached Map (ONE OPERATION!)
         ctx.drawImage(this.staticCanvas, 0, 0);
 
-        // 3. Draw Dynamic Elements (Player)
         const px = offsetX + (playerPos.x * cellSize);
         const py = offsetY + (playerPos.z * cellSize);
         
@@ -195,19 +191,16 @@ export class Minimap {
         ctx.arc(px + cellSize/2, py + cellSize/2, Math.max(3, cellSize), 0, Math.PI * 2);
         ctx.fill();
 
-        // 4. Draw Exit (Static - no animation)
         if (exitPos) {
             const ex = offsetX + (exitPos.x * cellSize);
             const ey = offsetY + (exitPos.z * cellSize);
             
-            // Outer ring
             ctx.strokeStyle = "#00ff00";
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(ex + cellSize/2, ey + cellSize/2, Math.max(8, cellSize + 5), 0, Math.PI * 2);
             ctx.stroke();
 
-            // Inner dot
             ctx.fillStyle = "#00ff00";
             ctx.beginPath();
             ctx.arc(ex + cellSize/2, ey + cellSize/2, Math.max(4, cellSize), 0, Math.PI * 2);

@@ -36,13 +36,9 @@ export class Player {
             this.velocity.x -= this.direction.x * 100.0 * delta;
         }
 
-        // 4. FOOTSTEP LOGIC (The Fixed Part)
-        // We check if ANY key is pressed to know if we are moving
+        // 4. FOOTSTEP LOGIC
         if (input.keys.forward || input.keys.backward || input.keys.left || input.keys.right) {
-            
             this.stepTimer += delta;
-            
-            // Trigger step sound based on frequency
             if (this.stepTimer > Config.STEP_FREQUENCY) {
                 if (this.audioManager) {
                     this.audioManager.playRandomStep();
@@ -50,7 +46,6 @@ export class Player {
                 this.stepTimer = 0;
             }
         } else {
-            // Reset timer if standing still so next step is instant
             this.stepTimer = Config.STEP_FREQUENCY; 
         }
 
@@ -92,10 +87,16 @@ export class Player {
     isWall(x, z) {
         const gridX = Math.floor(x);
         const gridZ = Math.floor(z);
+        
+        // Bounds Check
         if (gridZ < 0 || gridZ >= this.mapData.length || 
             gridX < 0 || gridX >= this.mapData[0].length) {
             return true; 
         }
-        return this.mapData[gridZ][gridX] === 1;
+
+        // FIX: Access the object property instead of the raw value
+        // Type 0 = Floor. Type 1 = Wall. Type 2 = Chasm.
+        // Treat anything that isn't Floor as a Wall.
+        return this.mapData[gridZ][gridX].type !== 0;
     }
 }

@@ -2,6 +2,7 @@ import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Engine } from './Core/Engine.js';
 import { Input } from './Core/Input.js';
 import { Config } from './Config.js';
+import { UIConfig } from './UIConfig.js';
 import { AudioConfig } from './AudioConfig.js';
 import { MusicConfig } from './MusicConfig.js';
 import { AudioManager } from './Core/AudioManager.js';
@@ -15,6 +16,7 @@ import { LevelManager } from './Game/LevelManager.js';
 import { HUD } from './UI/HUD.js';
 import { MusicPlayerUI } from './UI/MusicPlayerUI.js';
 import { Spawner } from './Game/Spawner.js';
+import { UIInitializer } from './UI/UIInitializer.js'; 
 
 // Loot System
 import { LootManager } from './Game/LootManager.js';
@@ -23,12 +25,9 @@ import { Pickup } from './Game/Pickup.js';
 // Message box
 import { MessageLog } from './UI/MessageLog.js';
 
-//UI text initializer
-import { UIInitializer } from './UI/UIInitializer.js';
-import { UIConfig } from './UIConfig.js';
-
 console.log("1. Game Script Loaded");
 
+// --- 0. INIT UI TEXT ---
 UIInitializer.init();
 
 // --- 1. GET SETTINGS ---
@@ -154,16 +153,13 @@ const levelManager = new LevelManager(engine, currentLevel, audioManager);
 let mapData; 
 
 async function loadLevel() {
-    // FIX: Default to a random seed (Time + Random) if API fails. 
-    // Never use a static string like "DEFAULT".
+    // Random seed fallback logic
     let currentSeed = Date.now() + "_" + Math.floor(Math.random() * 1000); 
 
     try {
         const res = await fetch('api/get_status.php');
         const data = await res.json();
         
-        // If server returned a seed, use it.
-        // It will now always return a number, never "DEFAULT".
         if (data.seed) {
             currentSeed = data.seed;
         }
@@ -190,11 +186,8 @@ async function loadLevel() {
         const mapWidth = Math.floor(Config.MAP_WIDTH * levelScale);
         const mapHeight = Math.floor(Config.MAP_HEIGHT * levelScale);
         
-        // Pass the guaranteed unique seed
         import('./ProcGen/DungeonGenerator.js').then(Module => {
             const generator = new Module.DungeonGenerator(currentSeed, mapWidth, mapHeight);
-            
-            // ... (Rest of the function logic remains exactly the same) ...
             mapData = generator.generate();
             
             loadingUI.update(60, UIConfig.LOADING.STEP_GEO);
@@ -217,6 +210,11 @@ async function loadLevel() {
                 weapon = entities.weapon;
                 enemies = entities.enemies;
                 exitObject = entities.exit;
+                
+                // FIX: Add spawned map loot to the game loop array
+                if (entities.pickups) {
+                    pickups = entities.pickups;
+                }
                 
                 minimap = new Minimap(mapData);
                 
@@ -435,11 +433,7 @@ document.body.addEventListener('click', () => {
 
 window.addEventListener('loot-pickup', (e) => {
     const data = e.detail;
-    
-    // 1. UI Message
     messageLog.add(`${data.name} (+${data.value})`, data.color);
-
-    // 2. Play Sound
     if (data.sound) {
         audioManager.playSFX(data.sound);
     }

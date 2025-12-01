@@ -15,96 +15,72 @@ export class LevelBuilder {
         const FLOOR_ASSET = Config.TEX_FLOOR;
         const CEIL_ASSET = Config.TEX_CEILING;
         const TEXTURE_PATH = Config.TEXTURE_PATH;
-        const WALL_HEIGHT = 4; 
+        const WALL_HEIGHT = Config.WALL_HEIGHT || 4;
 
-        console.log(`[LevelBuilder] Starting optimized build...`);
+        console.log(`[LevelBuilder] Starting 3D build...`);
 
-        // 1. RUN GREEDY MESHER
+        // 1. RUN MESHER (New Logic)
         const mesher = new GreedyMesher(mapData, WALL_HEIGHT);
-        const wallQuads = mesher.generateWallGeometry();
-        const { floors, ceilings } = mesher.generateFloorCeilingGeometry();
+        const geometryData = mesher.generateGeometry();
 
         // 2. LOAD MATERIALS
         const wallMat = this.loadMaterial(TEXTURE_PATH, WALL_ASSET, WALL_HEIGHT);
         const floorMat = this.loadMaterial(TEXTURE_PATH, FLOOR_ASSET, 1);
         const ceilingMat = this.loadMaterial(TEXTURE_PATH, CEIL_ASSET, 1);
 
-        // 3. BUILD GEOMETRY (With Subdivision)
-        this.buildWalls(wallQuads, wallMat, WALL_HEIGHT);
-        this.buildHorizontalSurfaces(floors, floorMat, 0, false); 
-        this.buildHorizontalSurfaces(ceilings, ceilingMat, WALL_HEIGHT, true); 
+        // 3. BUILD GEOMETRY
+        // We no longer subdivide here because the mesher does 1x1 tiles for height accuracy.
+        // Optimization: We could merge meshes later, but 1x1 BufferGeometry is fast enough for now.
+        
+        this.buildVerticalSurfaces(geometryData.walls, wallMat);
+        this.buildHorizontalSurfaces(geometryData.floors, floorMat, false); 
+        this.buildHorizontalSurfaces(geometryData.ceilings, ceilingMat, true); 
 
         console.log(`[LevelBuilder] Build complete.`);
     }
 
-    // --- HELPER: Subdivides massive quads into smaller chunks for better lighting ---
-    // If we don't do this, a 20-meter wall is just 2 triangles, which breaks spotlight math.
-    subdivideAndAdd(quad, addFunction, maxsize = 4) {
-        const { x, z, width, depth, face } = quad;
-
-        // If it's small enough, just add it
-        if (width <= maxsize && depth <= maxsize) {
-            addFunction(x, z, width, depth);
-            return;
-        }
-
-        // Otherwise, chop it up loops
-        for (let currX = 0; currX < width; currX += maxsize) {
-            const chunkW = Math.min(maxsize, width - currX);
-            
-            for (let currZ = 0; currZ < depth; currZ += maxsize) {
-                const chunkD = Math.min(maxsize, depth - currZ);
-                
-                // Add the sub-quad
-                addFunction(x + currX, z + currZ, chunkW, chunkD);
-            }
-        }
-    }
-
-    buildWalls(quads, material, wallHeight) {
+    buildVerticalSurfaces(walls, material) {
         const allVertices = [];
         const allNormals = [];
         const allUvs = [];
         const allIndices = [];
         let indexOffset = 0;
 
-        const addQuadGeometry = (qx, qz, qw, qd, face) => {
-            let v0, v1, v2, v3; 
+        walls.forEach(w => {
+            // w contains: x, z, y (bottom), h (height), face
+            const { x, z, y, h, face } = w;
             
-            // UV Tiling (Relative to the specific chunk size)
-            const uRepeat = (face === 'north' || face === 'south') ? qw : qd;
-            const vRepeat = wallHeight;
+            let v0, v1, v2, v3;
+            // UV Repeat: width is always 1, height varies
+            const uRep = 1;
+            const vRep = h; 
 
+            // Standard coordinate logic
+            // Note: x,z are grid indices. y is actual height.
             switch (face) {
-                case 'north': // -Z
-                    v0 = [qx + qw, 0, qz];
-                    v1 = [qx, 0, qz];
-                    v2 = [qx, wallHeight, qz];
-                    v3 = [qx + qw, wallHeight, qz];
+                case 'north': // -Z side of tile
+                    v0 = [x + 1, y, z];
+                    v1 = [x, y, z];
+                    v2 = [x, y + h, z];
+                    v3 = [x + 1, y + h, z];
                     break;
-                case 'south': // +Z
-                    v0 = [qx, 0, qz + 1];
-                    v1 = [qx + qw, 0, qz + 1];
-                    v2 = [qx + qw, wallHeight, qz + 1];
-                    v3 = [qx, wallHeight, qz + 1];
+                case 'south': // +Z side of tile
+                    v0 = [x, y, z + 1];
+                    v1 = [x + 1, y, z + 1];
+                    v2 = [x + 1, y + h, z + 1];
+                    v3 = [x, y + h, z + 1];
                     break;
-                case 'east': // +X
-                    v0 = [qx + 1, 0, qz + qd];
-                    v1 = [qx + 1, 0, qz];
-                    v2 = [qx + 1, wallHeight, qz];
-                    v3 = [qx + 1, wallHeight, qz + qd];
+                case 'east': // +X side
+                    v0 = [x + 1, y, z + 1];
+                    v1 = [x + 1, y, z];
+                    v2 = [x + 1, y + h, z];
+                    v3 = [x + 1, y + h, z + 1];
                     break;
-                case 'west': // -X
-                    v0 = [qx, 0, qz];
-                    v1 = [qx, 0, qz + qd];
-                    v2 = [qx, wallHeight, qz + qd];
-                    v3 = [qx, wallHeight, qz];
-                    break;
-                case 'top': // +Y
-                    v0 = [qx, wallHeight, qz + qd];
-                    v1 = [qx + qw, wallHeight, qz + qd];
-                    v2 = [qx + qw, wallHeight, qz];
-                    v3 = [qx, wallHeight, qz];
+                case 'west': // -X side
+                    v0 = [x, y, z];
+                    v1 = [x, y, z + 1];
+                    v2 = [x, y + h, z + 1];
+                    v3 = [x, y + h, z];
                     break;
             }
 
@@ -113,37 +89,72 @@ export class LevelBuilder {
             const n = this.getFaceNormal(face);
             for (let i = 0; i < 4; i++) allNormals.push(...n);
 
-            allUvs.push(0, 0, uRepeat, 0, uRepeat, vRepeat, 0, vRepeat);
+            // UVs: Standard quad mapping
+            allUvs.push(0, 0, uRep, 0, uRep, vRep, 0, vRep);
 
             allIndices.push(
                 indexOffset, indexOffset + 1, indexOffset + 2,
                 indexOffset, indexOffset + 2, indexOffset + 3
             );
             indexOffset += 4;
-        };
+        });
 
-        // Process faces with subdivision
-        const processFaceList = (list, faceName) => {
-            list.forEach(q => {
-                this.subdivideAndAdd(q, (sx, sz, sw, sd) => {
-                    addQuadGeometry(sx, sz, sw, sd, faceName);
-                }, 4); // Max wall segment length = 4
-            });
-        };
+        if (allVertices.length > 0) {
+            this.createMesh(allVertices, allNormals, allUvs, allIndices, material);
+        }
+    }
 
-        processFaceList(quads.north, 'north');
-        processFaceList(quads.south, 'south');
-        processFaceList(quads.east, 'east');
-        processFaceList(quads.west, 'west');
-        processFaceList(quads.top, 'top');
+    buildHorizontalSurfaces(list, material, isCeiling) {
+        const allVertices = [];
+        const allNormals = [];
+        const allUvs = [];
+        const allIndices = [];
+        let indexOffset = 0;
 
-        if (allVertices.length === 0) return;
+        const normal = isCeiling ? [0, -1, 0] : [0, 1, 0];
 
+        list.forEach(item => {
+            const { x, z, y } = item;
+            const w = 1; // Fixed 1x1 for now
+            const d = 1;
+
+            let v0, v1, v2, v3;
+
+            if (isCeiling) {
+                v0 = [x, y, z];
+                v1 = [x + w, y, z];
+                v2 = [x + w, y, z + d];
+                v3 = [x, y, z + d];
+            } else { // Floor
+                v0 = [x, y, z + d];
+                v1 = [x + w, y, z + d];
+                v2 = [x + w, y, z];
+                v3 = [x, y, z];
+            }
+
+            allVertices.push(...v0, ...v1, ...v2, ...v3);
+            for (let i = 0; i < 4; i++) allNormals.push(...normal);
+
+            allUvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+
+            allIndices.push(
+                indexOffset, indexOffset + 1, indexOffset + 2,
+                indexOffset, indexOffset + 2, indexOffset + 3
+            );
+            indexOffset += 4;
+        });
+
+        if (allVertices.length > 0) {
+            this.createMesh(allVertices, allNormals, allUvs, allIndices, material);
+        }
+    }
+
+    createMesh(vertices, normals, uvs, indices, material) {
         const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(allVertices, 3));
-        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
-        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(allUvs, 2));
-        geometry.setIndex(allIndices);
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geometry.setIndex(indices);
         geometry.computeTangents();
 
         const mesh = new THREE.Mesh(geometry, material);
@@ -153,68 +164,12 @@ export class LevelBuilder {
         this.geometries.push(geometry);
     }
 
-    buildHorizontalSurfaces(quads, material, yPos, faceDown) {
-        const allVertices = [];
-        const allNormals = [];
-        const allUvs = [];
-        const allIndices = [];
-        let indexOffset = 0;
-
-        const normal = faceDown ? [0, -1, 0] : [0, 1, 0];
-
-        quads.forEach(quad => {
-            // Subdivide floors too, otherwise the flashlight looks bad on the ground
-            this.subdivideAndAdd(quad, (x, z, width, depth) => {
-                let v0, v1, v2, v3;
-
-                if (faceDown) { // Ceiling
-                    v0 = [x, yPos, z];
-                    v1 = [x + width, yPos, z];
-                    v2 = [x + width, yPos, z + depth];
-                    v3 = [x, yPos, z + depth];
-                } else { // Floor
-                    v0 = [x, yPos, z + depth];
-                    v1 = [x + width, yPos, z + depth];
-                    v2 = [x + width, yPos, z];
-                    v3 = [x, yPos, z];
-                }
-
-                allVertices.push(...v0, ...v1, ...v2, ...v3);
-                for (let i = 0; i < 4; i++) allNormals.push(...normal);
-
-                allUvs.push(0, 0, width, 0, width, depth, 0, depth);
-
-                allIndices.push(
-                    indexOffset, indexOffset + 1, indexOffset + 2,
-                    indexOffset, indexOffset + 2, indexOffset + 3
-                );
-                indexOffset += 4;
-            }, 4); // Max floor tile size = 4x4
-        });
-
-        if (allVertices.length === 0) return;
-
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(allVertices, 3));
-        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
-        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(allUvs, 2));
-        geometry.setIndex(allIndices);
-        geometry.computeTangents();
-
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.receiveShadow = true;
-        this.scene.add(mesh);
-        this.geometries.push(geometry);
-    }
-
-    // ... (keep getFaceNormal, loadMaterial, createExit, dispose exactly as they were)
     getFaceNormal(face) {
         switch (face) {
             case 'north': return [0, 0, -1];
             case 'south': return [0, 0, 1];
             case 'east': return [1, 0, 0];
             case 'west': return [-1, 0, 0];
-            case 'top': return [0, 1, 0];
             default: return [0, 1, 0];
         }
     }

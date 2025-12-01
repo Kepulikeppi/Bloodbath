@@ -1,32 +1,31 @@
+import * as THREE from 'https://esm.sh/three@0.160.0'; // FIXED: Added this import
 import { Config } from '../Config.js';
 import { Player } from './Player.js';
-import { EnemyWatcher } from './Enemies/EnemyWatcher.js'; 
+import { Enemy } from './Enemy.js'; 
 import { RangedWeapon } from './Weapons/RangedWeapon.js';
 import { WeaponConfig } from '../WeaponConfig.js';
+import { LootManager } from './LootManager.js';
+import { Pickup } from './Pickup.js';
 
 export class Spawner {
     static findSafeSpawn(mapData, startRoom) {
         const isFloor = (x, y) => {
-            return y >= 0 && y < mapData.length && x >= 0 && x < mapData[0].length && mapData[y][x] === 0;
+            if (y < 0 || y >= mapData.length || x < 0 || x >= mapData[0].length) return false;
+            // Check object property
+            return mapData[y][x].type === 0;
         };
         
         if (startRoom) {
             const cx = startRoom.center.x;
             const cy = startRoom.center.y;
-            if (isFloor(cx, cy) && isFloor(cx+1, cy) && isFloor(cx-1, cy) && isFloor(cx, cy+1) && isFloor(cx, cy-1)) {
+            if (isFloor(cx, cy)) {
                 return { x: cx, z: cy };
             }
         }
 
         for (let y = 2; y < mapData.length - 2; y++) {
             for (let x = 2; x < mapData[0].length - 2; x++) {
-                let allFloor = true;
-                for(let dy = -1; dy <= 1; dy++) {
-                    for(let dx = -1; dx <= 1; dx++) {
-                        if (!isFloor(x+dx, y+dy)) allFloor = false;
-                    }
-                }
-                if (allFloor) return { x: x, z: y };
+                if (isFloor(x, y)) return { x: x, z: y };
             }
         }
         return { x: 10, z: 10 };
@@ -37,6 +36,7 @@ export class Spawner {
             player: null,
             weapon: null,
             enemies: [],
+            pickups: [], 
             exit: null
         };
 
@@ -48,14 +48,38 @@ export class Spawner {
         // 2. Weapon
         entities.weapon = new RangedWeapon(engine.camera, WeaponConfig.PISTOL_9MM, audioManager);
 
-        // 3. Enemies
+        // 3. Enemies & Loot
         if (generator.rooms) {
             generator.rooms.forEach((room) => {
                 if (room === generator.startRoom) return;
-                
-                // Spawn WATCHER
-                const enemy = new EnemyWatcher(engine.scene, room.center.x, room.center.y, audioManager);
+
+                // Enemy
+                const enemy = new Enemy(engine.scene, room.center.x, room.center.y, audioManager, 'WATCHER');
                 entities.enemies.push(enemy);
+
+                // Loot
+                let lootType = 'COMMON';
+                let count = 1;
+
+                if (room === generator.endRoom) {
+                    lootType = 'NONE'; 
+                } else if (room.type === 'branch') {
+                    lootType = 'RARE'; 
+                    count = Math.random() > 0.5 ? 2 : 1;
+                } else {
+                    if (Math.random() > 0.6) lootType = 'NONE';
+                }
+
+                if (lootType !== 'NONE') {
+                    const spots = generator.getLootSpots(room, count);
+                    spots.forEach(spot => {
+                        const itemKey = LootManager.getMapLoot(lootType);
+                        if (itemKey) {
+                            const p = new Pickup(engine.scene, itemKey, new THREE.Vector3(spot.x + 0.5, 0, spot.z + 0.5));
+                            entities.pickups.push(p);
+                        }
+                    });
+                }
             });
         }
 

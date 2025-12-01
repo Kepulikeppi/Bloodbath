@@ -27,7 +27,46 @@ export class Enemy {
         this.mesh.position.set(x + 0.5, 0, z + 0.5);
         this.mesh.userData = { parent: this }; 
 
+        // 4. BUILD VISUALS
+        this.buildVisuals();
+
         this.scene.add(this.mesh);
+    }
+
+    buildVisuals() {
+        if (this.type === 'WATCHER' || this.type === 'FLOATING_DIAMOND') {
+            const size = this.stats.scale || 0.5;
+            
+            // A. Main Body (Red Box)
+            const geometry = new THREE.BoxGeometry(size, size, size);
+            const material = new THREE.MeshStandardMaterial({ 
+                color: this.stats.color, 
+                roughness: 0.4,
+                emissive: this.stats.emissive || 0x000000,
+                emissiveIntensity: 0.5
+            });
+            
+            const body = new THREE.Mesh(geometry, material);
+            body.position.y = 1.6;
+            
+            // B. Glowing Eyes
+            const eyeGeo = new THREE.BoxGeometry(0.08, 0.08, 0.05);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            
+            const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+            leftEye.position.set(0.15, 0.05, size/2 + 0.02);
+            
+            const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+            rightEye.position.set(-0.15, 0.05, size/2 + 0.02);
+            
+            leftEye.userData = { ignoreFlash: true };
+            rightEye.userData = { ignoreFlash: true };
+
+            body.add(leftEye);
+            body.add(rightEye);
+            
+            this.mesh.add(body);
+        }
     }
 
     takeDamage(amount) {
@@ -56,7 +95,7 @@ export class Enemy {
                     child.material.emissiveIntensity = 1.0;
                 } else {
                     child.material.emissive.setHex(this.stats.emissive || 0x000000);
-                    child.material.emissiveIntensity = 0.0; // Default off
+                    child.material.emissiveIntensity = 0.5;
                 }
             }
         });
@@ -80,16 +119,13 @@ export class Enemy {
     update(delta, playerPos, mapData, allEnemies = []) {
         if (this.isDead) return;
 
-        // 1. Flash Reset
         if (this.flashTimer > 0) {
             this.flashTimer -= delta;
             if (this.flashTimer <= 0) this.applyFlash(false);
         }
 
-        // 2. Cooldowns
         if (this.attackTimer > 0) this.attackTimer -= delta;
 
-        // 3. DISTANCE CHECK
         const dx = playerPos.x - this.mesh.position.x;
         const dz = playerPos.z - this.mesh.position.z;
         const dist2D = Math.sqrt(dx*dx + dz*dz);
@@ -101,10 +137,8 @@ export class Enemy {
     }
 
     behavior(delta, playerPos, dist2D, mapData, allEnemies) {
-        // A. Look at player
         this.mesh.lookAt(playerPos.x, this.mesh.position.y, playerPos.z);
 
-        // B. Move
         if (dist2D > this.stats.stopDist) {
             const dir = new THREE.Vector3(
                 playerPos.x - this.mesh.position.x,
@@ -126,7 +160,6 @@ export class Enemy {
             }
         }
 
-        // C. Attack
         if (dist2D <= this.stats.attackRange && this.attackTimer <= 0) {
             this.attack();
         }
@@ -177,6 +210,7 @@ export class Enemy {
         if (gridZ < 0 || gridZ >= mapData.length || gridX < 0 || gridX >= mapData[0].length) {
             return true;
         }
-        return mapData[gridZ][gridX] === 1;
+        // FIX: Check type property. 0 = Floor.
+        return mapData[gridZ][gridX].type !== 0;
     }
 }

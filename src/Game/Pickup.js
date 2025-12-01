@@ -4,15 +4,13 @@ import { state } from './GameState.js';
 
 export class Pickup {
     constructor(scene, type, position) {
-        // ... (constructor remains the same)
+
         this.scene = scene;
         this.type = type;
         this.config = LootConfig[type] || LootConfig[LootTypes.SCRAP]; 
         this.isActive = true;
         this.time = Math.random() * 100;
 
-        // ... (geometry creation remains the same)
-        
         // Ensure glow config matches new structure if needed
         const geometry = this.getGeometry(this.config.shape);
         const material = new THREE.MeshStandardMaterial({ 
@@ -56,7 +54,7 @@ export class Pickup {
         this.mesh.position.y = 0.5 + Math.sin(this.time * 2.5) * 0.15;
         this.mesh.rotation.z = Math.sin(this.time) * 0.1;
 
-        const dist = this.mesh.position.distanceTo(playerPos);
+        const dist = this.mesh.position.distanceTo(playerPos);a
         if (dist < 1.5) {
             this.collect();
             return true; 
