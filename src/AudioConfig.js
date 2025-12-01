@@ -46,6 +46,7 @@ export const AudioConfig = {
             AMMO_44: './assets/sounds/pickup_ammo44.mp3',
             AMMO_762: './assets/sounds/pickup_ammo762.mp3',
             AMMO_127MM: './assets/sounds/pickup_ammo127mm.mp3',
+            AMMO_SHELL: './assets/sounds/pickup_shotgunshell.mp3',
             METAL: './assets/sounds/pickup_metal.mp3',
             ELEC: './assets/sounds/pickup_elec.mp3',
             CHIP: './assets/sounds/pickup_chip.mp3',

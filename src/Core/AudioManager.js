@@ -91,6 +91,7 @@ export class AudioManager {
             if (L.AMMO_44)    load('pickup_ammo44', L.AMMO_44);
             if (L.AMMO_762)   load('pickup_ammo762', L.AMMO_762);
             if (L.AMMO_127MM) load('pickup_ammo127mm', L.AMMO_127MM);
+            if (L.AMMO_SHELL) load('pickup_shotgunshell', L.AMMO_SHELL);
         }
     }
 

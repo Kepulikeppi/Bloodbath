@@ -63,16 +63,16 @@ export const LootConfig = {
     [LootTypes.AMMO_9MM]: { 
         name: "9MM AMMO", 
         color: 0xffffaa, scale: 0.3, value: 12, shape: 'BOX', glow: false,
-        sound: 'pickup_ammo9mm' // Updated Key
+        sound: 'pickup_ammo9mm' 
     },
     [LootTypes.AMMO_SHELL]: { 
         name: "SHOTGUN SHELLS", 
         color: 0xff0000, scale: 0.35, value: 6, shape: 'CYLINDER', glow: false,
-        sound: 'pickup_shotgunshell' // Mapped to heavy shell sound for now
+        sound: 'pickup_shotgunshell'
     },
     [LootTypes.AMMO_44]: { 
         name: ".44 MAGNUM AMMO", 
         color: 0xcccccc, scale: 0.3, value: 6, shape: 'BOX', glow: false,
-        sound: 'pickup_ammo44' // Updated Key
+        sound: 'pickup_ammo44'  
     },
 };
