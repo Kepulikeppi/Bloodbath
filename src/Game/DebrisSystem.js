@@ -90,6 +90,13 @@ export class DebrisSystem {
         p2.mesh.visible = true;
         p2.mesh.position.set(0, -500, 0);
 
+        // 3. Warmup Particle (Blood Spray)
+        const p3 = this.particlePool[2];
+        p3.mesh.geometry = this.sprayGeo;
+        p3.mesh.material = this.sprayMat;
+        p3.mesh.visible = true;
+        p3.mesh.position.set(0, -500, 0);
+
         // 3. Warmup Decal
         const d1 = this.decalPool[0];
         d1.visible = true;
@@ -101,6 +108,7 @@ export class DebrisSystem {
         setTimeout(() => {
             p1.mesh.visible = false;
             p2.mesh.visible = false;
+            p3.mesh.visible = false;
             d1.visible = false;
         }, 100);
     }

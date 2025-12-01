@@ -206,6 +206,11 @@ async function loadLevel() {
                 if (entities.weapon && entities.weapon.flashLight) {
                     entities.weapon.flashLight.intensity = 1.0;
                 }
+
+                if (debrisSystem) {
+                    debrisSystem.warmup();
+                }
+
                 engine.renderer.render(engine.scene, engine.camera);
                 if (entities.weapon && entities.weapon.flashLight) {
                     entities.weapon.flashLight.intensity = 0.001;

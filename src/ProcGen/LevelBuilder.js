@@ -1,6 +1,7 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Config } from '../Config.js';
 import { GreedyMesher } from '../Utils/GreedyMesher.js';
+import { TextureCache } from '../Core/TextureCache.js';
 
 export class LevelBuilder {
     constructor(scene) {
@@ -14,14 +15,13 @@ export class LevelBuilder {
         this.materials = [];
     }
 
-    // NEW: Async helper to wait for textures
     waitForLoad() {
         return new Promise((resolve) => {
-            // If everything is already loaded (or cached), onLoad fires immediately.
-            // If not, it waits for the pending requests from build().
-            this.manager.onLoad = () => {
-                resolve();
+            const check = () => {
+                if (this.pendingLoads === 0) resolve();
+                else setTimeout(check, 50);
             };
+            check();
         });
     }
 
@@ -153,6 +153,22 @@ export class LevelBuilder {
         const colorMap = this.loader.load(`${fullPath}_Color.jpg`, undefined, undefined, onError);
         const normalMap = this.loader.load(`${fullPath}_NormalGL.jpg`, undefined, undefined, onError);
         const roughMap = this.loader.load(`${fullPath}_Roughness.jpg`, undefined, undefined, onError);
+
+        // Track pending loads for textures not yet cached
+        if (!TextureCache.has(colorPath)) this.pendingLoads++;
+        if (!TextureCache.has(normalPath)) this.pendingLoads++;
+        if (!TextureCache.has(roughPath)) this.pendingLoads++;
+
+        colorMap = TextureCache.load(colorPath, () => {
+            if (!TextureCache.has(colorPath)) this.pendingLoads--;
+        });
+        normalMap = TextureCache.load(normalPath, () => {
+            if (!TextureCache.has(normalPath)) this.pendingLoads--;
+        });
+        roughMap = TextureCache.load(roughPath, () => {
+            if (!TextureCache.has(roughPath)) this.pendingLoads--;
+        });
+
 
         colorMap.colorSpace = THREE.SRGBColorSpace;
 
