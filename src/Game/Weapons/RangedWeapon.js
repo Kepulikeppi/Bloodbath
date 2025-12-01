@@ -1,7 +1,7 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Weapon } from './Weapon.js';
-import { state } from '/src/Game/GameState.js'; 
-import { WeaponConfig } from '/src/WeaponConfig.js'; 
+import { state } from '../GameState.js'; 
+import { WeaponConfig } from '../../WeaponConfig.js';
 import { LightManager } from '../LightManager.js'; // NEW
 
 export class RangedWeapon extends Weapon {
