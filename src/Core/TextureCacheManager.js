@@ -5,6 +5,7 @@ class TextureCacheManager {
     constructor() {
         this.cache = new Map();
         this.loader = new THREE.TextureLoader();
+        this.pending = 0;
     }
 
     load(path, onLoad) {
@@ -15,32 +16,24 @@ class TextureCacheManager {
             return tex;
         }
 
+        // Track pending
+        this.pending++;
+
         // Load and cache
         const texture = this.loader.load(path, (tex) => {
             this.cache.set(path, tex);
+            this.pending--;
             if (onLoad) onLoad(tex);
         }, undefined, (err) => {
             console.warn(`[TextureCache] Failed to load: ${path}`);
+            this.pending--;
         });
 
         return texture;
     }
 
-    // Preload textures during initial load
-    preload(paths) {
-        return Promise.all(paths.map(path => {
-            return new Promise((resolve) => {
-                this.load(path, resolve);
-            });
-        }));
-    }
-
-    has(path) {
-        return this.cache.has(path);
-    }
-
-    get(path) {
-        return this.cache.get(path);
+    isLoaded() {
+        return this.pending === 0;
     }
 }
 

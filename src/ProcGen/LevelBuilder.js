@@ -1,7 +1,7 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Config } from '../Config.js';
 import { GreedyMesher } from '../Utils/GreedyMesher.js';
-import { TextureCache } from '../Core/TextureCache.js';
+import { TextureCache } from '../Core/TextureCacheManager.js';
 
 export class LevelBuilder {
     constructor(scene) {
@@ -18,7 +18,7 @@ export class LevelBuilder {
     waitForLoad() {
         return new Promise((resolve) => {
             const check = () => {
-                if (this.pendingLoads === 0) resolve();
+                if (TextureCache.isLoaded()) resolve();
                 else setTimeout(check, 50);
             };
             check();
@@ -148,35 +148,16 @@ export class LevelBuilder {
     loadMaterial(basePath, assetName, repeatY = 1) {
         const fullPath = `${basePath}${assetName}`;
         const onError = (err) => { console.error(`[TEXTURE ERROR] Could not load: ${fullPath}`); };
-
         // Calls are now tracked by this.manager
         const colorMap = this.loader.load(`${fullPath}_Color.jpg`, undefined, undefined, onError);
         const normalMap = this.loader.load(`${fullPath}_NormalGL.jpg`, undefined, undefined, onError);
         const roughMap = this.loader.load(`${fullPath}_Roughness.jpg`, undefined, undefined, onError);
 
-        // Track pending loads for textures not yet cached
-        if (!TextureCache.has(colorPath)) this.pendingLoads++;
-        if (!TextureCache.has(normalPath)) this.pendingLoads++;
-        if (!TextureCache.has(roughPath)) this.pendingLoads++;
-
-        colorMap = TextureCache.load(colorPath, () => {
-            if (!TextureCache.has(colorPath)) this.pendingLoads--;
-        });
-        normalMap = TextureCache.load(normalPath, () => {
-            if (!TextureCache.has(normalPath)) this.pendingLoads--;
-        });
-        roughMap = TextureCache.load(roughPath, () => {
-            if (!TextureCache.has(roughPath)) this.pendingLoads--;
-        });
-
-
         colorMap.colorSpace = THREE.SRGBColorSpace;
-
         [colorMap, normalMap, roughMap].forEach(tex => {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
         });
-
         const material = new THREE.MeshStandardMaterial({
             map: colorMap,
             normalMap: normalMap,
@@ -186,7 +167,6 @@ export class LevelBuilder {
             color: 0xaaaaaa,
             side: THREE.DoubleSide
         });
-
         this.materials.push(material);
         return material;
     }
