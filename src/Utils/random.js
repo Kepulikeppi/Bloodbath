@@ -1,5 +1,9 @@
 export class Random {
-    constructor(seedStr) {
+    constructor(seed) {
+        // FIX: Ensure seed is a string so .length works
+        // If 'seed' is a number (from PHP), .length is undefined without this.
+        const seedStr = String(seed);
+
         // Convert string seed to a number hash
         let h = 0x811c9dc5;
         for (let i = 0; i < seedStr.length; i++) {

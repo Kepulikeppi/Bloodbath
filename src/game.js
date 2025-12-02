@@ -145,6 +145,10 @@ async function loadLevel() {
         if (data.active) {
             currentLevel = data.level;
             if(levelManager) levelManager.currentLevel = currentLevel;
+
+            if (data.player_data) {
+                state.setData(data.player_data);
+            }
         }
     } catch(e) {
         console.warn("API Error, generating client-side random seed");
