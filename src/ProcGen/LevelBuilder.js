@@ -1,27 +1,33 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Config } from '../Config.js';
 import { GreedyMesher } from '../Utils/GreedyMesher.js';
-import { TextureCache } from '../Core/TextureCacheManager.js';
 
 export class LevelBuilder {
     constructor(scene) {
         this.scene = scene;
         
-        // FIX: Use LoadingManager to track texture downloads
+        // Track progress
         this.manager = new THREE.LoadingManager();
-        this.loader = new THREE.TextureLoader(this.manager);
+        
+        // We use ImageLoader because we are loading Blobs manually
+        this.imageLoader = new THREE.ImageLoader(this.manager);
         
         this.geometries = [];
         this.materials = [];
     }
 
+    // Called by game.js to pause until textures are ready
     waitForLoad() {
         return new Promise((resolve) => {
-            const check = () => {
-                if (TextureCache.isLoaded()) resolve();
-                else setTimeout(check, 50);
+            this.manager.onLoad = () => {
+                console.log("[LevelBuilder] Assets loaded.");
+                resolve();
             };
-            check();
+            
+            this.manager.onError = (url) => {
+                console.warn(`[LevelBuilder] Failed to load: ${url}`);
+                resolve(); // Resolve anyway to avoid soft-lock
+            };
         });
     }
 
@@ -38,7 +44,7 @@ export class LevelBuilder {
         const mesher = new GreedyMesher(mapData, WALL_HEIGHT);
         const geometryData = mesher.generateGeometry();
 
-        // 2. LOAD MATERIALS (This now registers tasks with this.manager)
+        // 2. LOAD MATERIALS (Triggers Cache Logic)
         const wallMat = this.loadMaterial(TEXTURE_PATH, WALL_ASSET, WALL_HEIGHT);
         const floorMat = this.loadMaterial(TEXTURE_PATH, FLOOR_ASSET, 1);
         const ceilingMat = this.loadMaterial(TEXTURE_PATH, CEIL_ASSET, 1);
@@ -48,11 +54,81 @@ export class LevelBuilder {
         this.buildHorizontalSurfaces(geometryData.floors, floorMat, false); 
         this.buildHorizontalSurfaces(geometryData.ceilings, ceilingMat, true); 
 
-        console.log(`[LevelBuilder] Geometry generated. Waiting for textures...`);
+        console.log(`[LevelBuilder] Geometry generated.`);
     }
 
-    // ... [buildVerticalSurfaces, buildHorizontalSurfaces, createMesh, getFaceNormal KEEP AS IS] ...
-    
+    // === CUSTOM TEXTURE LOADER WITH CACHE ===
+    loadTextureWithCache(url, isColorMap = false) {
+        const texture = new THREE.Texture();
+        
+        // Tell manager we started
+        this.manager.itemStart(url);
+
+        // Open the cache
+        window.caches.open('bloodbath-assets-v1').then(cache => {
+            cache.match(url).then(cachedResponse => {
+                if (cachedResponse) {
+                    // CACHE HIT
+                    return cachedResponse.blob();
+                } else {
+                    // CACHE MISS - Download
+                    return fetch(url).then(networkResponse => {
+                        if (!networkResponse.ok) throw new Error(`HTTP ${networkResponse.status}`);
+                        // Store in cache for next time
+                        cache.put(url, networkResponse.clone());
+                        return networkResponse.blob();
+                    });
+                }
+            }).then(blob => {
+                // Convert Blob to Image
+                const objectUrl = URL.createObjectURL(blob);
+                
+                this.imageLoader.load(objectUrl, (image) => {
+                    texture.image = image;
+                    if (isColorMap) texture.colorSpace = THREE.SRGBColorSpace;
+                    texture.needsUpdate = true;
+                    
+                    // Tell manager we finished
+                    this.manager.itemEnd(url);
+                    URL.revokeObjectURL(objectUrl);
+                });
+            }).catch(err => {
+                console.warn(`[Texture Cache Error] ${url}`, err);
+                this.manager.itemError(url);
+            });
+        });
+
+        return texture;
+    }
+
+    loadMaterial(basePath, assetName, repeatY = 1) {
+        const fullPath = `${basePath}${assetName}`;
+
+        // Use custom cache loader
+        const colorMap = this.loadTextureWithCache(`${fullPath}_Color.jpg`, true);
+        const normalMap = this.loadTextureWithCache(`${fullPath}_NormalGL.jpg`);
+        const roughMap = this.loadTextureWithCache(`${fullPath}_Roughness.jpg`);
+
+        // Setup texture repeating
+        [colorMap, normalMap, roughMap].forEach(tex => {
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+        });
+
+        const material = new THREE.MeshStandardMaterial({
+            map: colorMap,
+            normalMap: normalMap,
+            roughnessMap: roughMap,
+            roughness: 1.0,
+            metalness: 0.1,
+            color: 0xaaaaaa,
+            side: THREE.DoubleSide
+        });
+
+        this.materials.push(material);
+        return material;
+    }
+
     buildVerticalSurfaces(walls, material) {
         const allVertices = [];
         const allNormals = [];
@@ -67,18 +143,10 @@ export class LevelBuilder {
             const vRep = h; 
 
             switch (face) {
-                case 'north':
-                    v0 = [x + 1, y, z]; v1 = [x, y, z]; v2 = [x, y + h, z]; v3 = [x + 1, y + h, z];
-                    break;
-                case 'south':
-                    v0 = [x, y, z + 1]; v1 = [x + 1, y, z + 1]; v2 = [x + 1, y + h, z + 1]; v3 = [x, y + h, z + 1];
-                    break;
-                case 'east':
-                    v0 = [x + 1, y, z + 1]; v1 = [x + 1, y, z]; v2 = [x + 1, y + h, z]; v3 = [x + 1, y + h, z + 1];
-                    break;
-                case 'west':
-                    v0 = [x, y, z]; v1 = [x, y, z + 1]; v2 = [x, y + h, z + 1]; v3 = [x, y + h, z];
-                    break;
+                case 'north': v0 = [x + 1, y, z]; v1 = [x, y, z]; v2 = [x, y + h, z]; v3 = [x + 1, y + h, z]; break;
+                case 'south': v0 = [x, y, z + 1]; v1 = [x + 1, y, z + 1]; v2 = [x + 1, y + h, z + 1]; v3 = [x, y + h, z + 1]; break;
+                case 'east': v0 = [x + 1, y, z + 1]; v1 = [x + 1, y, z]; v2 = [x + 1, y + h, z]; v3 = [x + 1, y + h, z + 1]; break;
+                case 'west': v0 = [x, y, z]; v1 = [x, y, z + 1]; v2 = [x, y + h, z + 1]; v3 = [x, y + h, z]; break;
             }
 
             allVertices.push(...v0, ...v1, ...v2, ...v3);
@@ -105,11 +173,8 @@ export class LevelBuilder {
             const w = 1; const d = 1;
             let v0, v1, v2, v3;
 
-            if (isCeiling) {
-                v0 = [x, y, z]; v1 = [x + w, y, z]; v2 = [x + w, y, z + d]; v3 = [x, y, z + d];
-            } else {
-                v0 = [x, y, z + d]; v1 = [x + w, y, z + d]; v2 = [x + w, y, z]; v3 = [x, y, z];
-            }
+            if (isCeiling) { v0 = [x, y, z]; v1 = [x + w, y, z]; v2 = [x + w, y, z + d]; v3 = [x, y, z + d]; } 
+            else { v0 = [x, y, z + d]; v1 = [x + w, y, z + d]; v2 = [x + w, y, z]; v3 = [x, y, z]; }
 
             allVertices.push(...v0, ...v1, ...v2, ...v3);
             for (let i = 0; i < 4; i++) allNormals.push(...normal);
@@ -143,32 +208,6 @@ export class LevelBuilder {
             case 'west': return [-1, 0, 0];
             default: return [0, 1, 0];
         }
-    }
-
-    loadMaterial(basePath, assetName, repeatY = 1) {
-        const fullPath = `${basePath}${assetName}`;
-        const onError = (err) => { console.error(`[TEXTURE ERROR] Could not load: ${fullPath}`); };
-        // Calls are now tracked by this.manager
-        const colorMap = this.loader.load(`${fullPath}_Color.jpg`, undefined, undefined, onError);
-        const normalMap = this.loader.load(`${fullPath}_NormalGL.jpg`, undefined, undefined, onError);
-        const roughMap = this.loader.load(`${fullPath}_Roughness.jpg`, undefined, undefined, onError);
-
-        colorMap.colorSpace = THREE.SRGBColorSpace;
-        [colorMap, normalMap, roughMap].forEach(tex => {
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-        });
-        const material = new THREE.MeshStandardMaterial({
-            map: colorMap,
-            normalMap: normalMap,
-            roughnessMap: roughMap,
-            roughness: 1.0,
-            metalness: 0.1,
-            color: 0xaaaaaa,
-            side: THREE.DoubleSide
-        });
-        this.materials.push(material);
-        return material;
     }
 
     createExit(x, z) {
