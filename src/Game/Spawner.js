@@ -6,6 +6,7 @@ import { RangedWeapon } from './Weapons/RangedWeapon.js';
 import { WeaponConfig } from '../WeaponConfig.js';
 import { LootManager } from './LootManager.js';
 import { Pickup } from './Pickup.js';
+import { RoomTypes } from '../ProcGen/RoomTypes.js'; // Optional, for checking room type if needed
 
 export class Spawner {
     static findSafeSpawn(mapData, startRoom) {
@@ -14,6 +15,7 @@ export class Spawner {
             return mapData[y][x].type === 0;
         };
         
+        // Try center
         if (startRoom) {
             const cx = startRoom.center.x;
             const cy = startRoom.center.y;
@@ -22,6 +24,7 @@ export class Spawner {
             }
         }
 
+        // Fallback scan
         for (let y = 2; y < mapData.length - 2; y++) {
             for (let x = 2; x < mapData[0].length - 2; x++) {
                 if (isFloor(x, y)) return { x: x, z: y };
@@ -30,7 +33,20 @@ export class Spawner {
         return { x: 10, z: 10 };
     }
 
+    // Helper to get the floor height at a specific grid coordinate
+    static getFloorY(mapData, x, z) {
+        if (z >= 0 && z < mapData.length && x >= 0 && x < mapData[0].length) {
+            const tile = mapData[z][x];
+            if (tile.type === 0) return tile.height;
+        }
+        return 0; // Default fallback
+    }
+
     static spawnEntities(engine, mapData, generator, builder, audioManager) {
+        // Initialize Light Pool (e.g. 64 lights max)
+        // Note: Pickup class handles this internally now, but we keep LightManager for weapons
+        // (Assuming LightManager logic is handled in game.js or initialized here if needed)
+
         const entities = {
             player: null,
             weapon: null,
@@ -39,31 +55,17 @@ export class Spawner {
             exit: null
         };
 
-        // 1. Player Position
+        // 1. Player
         const spawnPoint = this.findSafeSpawn(mapData, generator.startRoom);
-        engine.camera.position.set(spawnPoint.x + 0.5, Config.EYE_HEIGHT, spawnPoint.z + 0.5);
+        const playerY = this.getFloorY(mapData, spawnPoint.x, spawnPoint.z) + Config.EYE_HEIGHT;
         
-        // === FACE PLAYER TOWARD CORRIDOR/NEXT ROOM ===
-        if (generator.mainPath && generator.mainPath.length > 1) {
-            const nextRoom = generator.mainPath[1];
-            const targetX = nextRoom.center.x + 0.5;
-            const targetZ = nextRoom.center.y + 0.5;
-            
-            // Calculate angle to next room
-            const dx = targetX - engine.camera.position.x;
-            const dz = targetZ - engine.camera.position.z;
-            
-            // atan2(-dz, dx) gives us the correct Y rotation for Three.js
-            // We negate dz because Three.js camera looks down -Z by default
-            const angle = Math.atan2(-dx, -dz);
-            
-            engine.camera.rotation.set(0, angle, 0);
-            engine.camera.updateMatrixWorld(true);
-            
-            console.log(`[Spawner] Player facing angle: ${(angle * 180 / Math.PI).toFixed(1)}°`);
-        }
-        // =============================================
+        engine.camera.position.set(spawnPoint.x + 0.5, playerY, spawnPoint.z + 0.5);
         
+        // Rotate player to face the first corridor (simple logic: look at center of room)
+        // or look towards map center.
+        // For now, just reset rotation.
+        engine.camera.rotation.set(0, 0, 0);
+
         entities.player = new Player(engine.camera, mapData, audioManager);
 
         // 2. Weapon
@@ -74,11 +76,27 @@ export class Spawner {
             generator.rooms.forEach((room) => {
                 if (room === generator.startRoom) return;
 
-                // Enemy
-                const enemy = new Enemy(engine.scene, room.center.x, room.center.y, audioManager, 'WATCHER');
+                // --- SPAWN ENEMY ---
+                // Get center coordinates
+                const ex = room.center.x;
+                const ez = room.center.y;
+                // Look up height at enemy position
+                const ey = this.getFloorY(mapData, ex, ez);
+
+                // Spawn Enemy (Pass Y implicitly via X/Z, or update Enemy class to accept Y?)
+                // Current Enemy.js takes (scene, x, z). It sets Y to 0 internally.
+                // We need to fix the Enemy constructor call or the Enemy class.
+                // Actually, updated Enemy.js applies physics, so it should snap to floor?
+                // YES: Enemy.js update() calls applyPhysics() which snaps to floor.
+                // However, setting initial position correctly prevents 1 frame of falling.
+                
+                const enemy = new Enemy(engine.scene, ex, ez, audioManager, 'WATCHER');
+                // Manually correct height immediately to prevent falling visual glitch
+                enemy.mesh.position.y = ey; 
+                
                 entities.enemies.push(enemy);
 
-                // Loot
+                // --- SPAWN LOOT ---
                 let lootType = 'COMMON';
                 let count = 1;
 
@@ -96,7 +114,10 @@ export class Spawner {
                     spots.forEach(spot => {
                         const itemKey = LootManager.getMapLoot(lootType);
                         if (itemKey) {
-                            const p = new Pickup(engine.scene, itemKey, new THREE.Vector3(spot.x + 0.5, 0, spot.z + 0.5));
+                            // Look up height for this specific spot
+                            const lootY = this.getFloorY(mapData, spot.x, spot.z);
+                            
+                            const p = new Pickup(engine.scene, itemKey, new THREE.Vector3(spot.x + 0.5, lootY, spot.z + 0.5));
                             entities.pickups.push(p);
                         }
                     });
@@ -106,7 +127,13 @@ export class Spawner {
 
         // 4. Exit
         if (generator.endRoom) {
-            entities.exit = builder.createExit(generator.endRoom.center.x, generator.endRoom.center.y);
+            const ex = generator.endRoom.center.x;
+            const ez = generator.endRoom.center.y;
+            const ey = this.getFloorY(mapData, ex, ez);
+            
+            entities.exit = builder.createExit(ex, ez);
+            // Adjust exit beacon height
+            entities.exit.position.y = ey + 0.45; 
         }
 
         return entities;

@@ -1,5 +1,7 @@
 import { Random } from '../Utils/Random.js';
 import { Config } from '../Config.js';
+import { RoomTypes } from './RoomTypes.js';
+import { RoomArchitect } from './RoomArchitect.js';
 
 export class DungeonGenerator {
     constructor(seed, width, height) {
@@ -7,10 +9,7 @@ export class DungeonGenerator {
         this.height = height || Config.MAP_HEIGHT;
         this.rng = new Random(seed);
         
-        // Data Structure Change: 2D Array of Objects
-        // null initially, filled in generate()
         this.map = []; 
-        
         this.rooms = [];
         this.doorways = [];
         this.startRoom = null;
@@ -32,7 +31,6 @@ export class DungeonGenerator {
         console.log(`[DungeonGen] Generating ${this.width}x${this.height} map...`);
         
         // 1. Initialize Grid
-        // Default to Solid Wall (Type 1) at Wall Height
         this.map = [];
         for (let y = 0; y < this.height; y++) {
             const row = [];
@@ -49,8 +47,18 @@ export class DungeonGenerator {
         this.generateMainPath();
         this.generateBranches();
         this.assignStartEnd();
+        
+        // 3. Carve Rooms (Now using Architect)
+        this.rooms.forEach(room => {
+            RoomArchitect.carve(this.map, room, this.rng);
+        });
 
-        // 3. Center the Map (Fixes the "Void" issue)
+        // 4. Connect Rooms (Now handles height interpolation)
+        // Note: We stored connection info during generation logic, now we apply it.
+        // Actually, the previous logic applied corridors immediately. 
+        // We need to ensure carveCorridor handles height.
+
+        // 5. Center
         this.normalizeCoordinates();
 
         console.log(`[DungeonGen] Complete: ${this.rooms.length} rooms`);
@@ -61,20 +69,25 @@ export class DungeonGenerator {
 
     generateMainPath() {
         const p = this.params;
-        // Start near left-middle
         const startX = this.rng.range(10, Math.floor(this.width * 0.15));
         const startY = this.rng.range(Math.floor(this.height * 0.3), Math.floor(this.height * 0.7));
         
+        // Main path stays at Height 0 for stability
         const firstRoom = { 
             x: startX, y: startY, 
             w: this.rng.range(p.roomMinSize, p.roomMaxSize), 
             h: this.rng.range(p.roomMinSize, p.roomMaxSize), 
-            type: 'main', depth: 0 
+            type: 'main', depth: 0,
+            baseHeight: 0,
+            roomShape: RoomTypes.NORMAL 
         };
         this.finalizeRoom(firstRoom);
-        
         this.rooms.push(firstRoom);
-        this.carveRoom(firstRoom);
+        // We carve later now? No, existing logic relies on detecting collisions.
+        // We must carve basic flat shape here for collision, apply detail later.
+        // For now, let's just register it and carve fully at the end? 
+        // No, canPlaceRoom needs to check bounds. It doesn't check map data, it checks bounds.
+        // So we are safe to defer carving.
         
         const mainPath = [firstRoom];
         let currentAngle = this.rng.range(-30, 30);
@@ -83,24 +96,19 @@ export class DungeonGenerator {
         while (mainPath.length < p.targetRooms && failedAttempts < 15) {
             const currentRoom = mainPath[mainPath.length - 1];
             currentAngle += this.rng.range(-p.wiggle, p.wiggle);
-            
-            // Bias forward
             if (currentAngle < -90) currentAngle += 40;
             if (currentAngle > 140) currentAngle -= 40;
             
             const primaryDir = this.angleToDir(currentAngle);
-            const directions = [primaryDir];
-            const allDirs = this.rng.shuffle(['N', 'S', 'E', 'W']);
-            for (const d of allDirs) { if (!directions.includes(d)) directions.push(d); }
+            const directions = [primaryDir, ...this.rng.shuffle(['N', 'S', 'E', 'W'])];
             
             let placed = false;
             for (const dir of directions) {
-                const newRoom = this.tryPlaceRoom(currentRoom, dir, 'main');
+                const newRoom = this.tryPlaceRoom(currentRoom, dir, 'main', 0);
                 if (newRoom) {
                     newRoom.depth = currentRoom.depth + 1;
                     this.rooms.push(newRoom);
                     mainPath.push(newRoom);
-                    this.carveRoom(newRoom);
                     this.connectRooms(currentRoom, newRoom, dir);
                     currentAngle = this.dirToAngle(dir);
                     placed = true;
@@ -117,26 +125,32 @@ export class DungeonGenerator {
         const p = this.params;
         for (let i = 1; i < this.mainPath.length - 1; i++) {
             if (this.rng.next() * 100 < p.branchChance) {
-                this.addBranch(this.mainPath[i], 0, p.maxBranchDepth);
+                // Branches can change height!
+                // Random height shift: -2, 0, or +2
+                const heightShift = (this.rng.range(0, 2) - 1) * 2; 
+                const startHeight = this.mainPath[i].baseHeight + heightShift;
+                this.addBranch(this.mainPath[i], 0, p.maxBranchDepth, startHeight);
             }
         }
     }
 
-    addBranch(sourceRoom, depth, maxDepth) {
+    addBranch(sourceRoom, depth, maxDepth, currentHeight) {
         if (depth >= maxDepth) return 0;
         let roomsAdded = 0;
         const directions = this.rng.shuffle(['N', 'S', 'E', 'W']);
         
         for (const dir of directions) {
-            const branchRoom = this.tryPlaceRoom(sourceRoom, dir, 'branch');
+            // Small chance to shift height again on sub-branches
+            const nextHeight = currentHeight; // Keep flat for simplicity in sub-branches for now
+
+            const branchRoom = this.tryPlaceRoom(sourceRoom, dir, 'branch', nextHeight);
             if (branchRoom) {
                 branchRoom.depth = depth;
                 this.rooms.push(branchRoom);
-                this.carveRoom(branchRoom);
                 this.connectRooms(sourceRoom, branchRoom, dir);
                 roomsAdded++;
                 if (this.rng.next() < 0.4 && depth + 1 < maxDepth) {
-                    roomsAdded += this.addBranch(branchRoom, depth + 1, maxDepth);
+                    roomsAdded += this.addBranch(branchRoom, depth + 1, maxDepth, nextHeight);
                 }
                 break;
             }
@@ -144,17 +158,15 @@ export class DungeonGenerator {
         return roomsAdded;
     }
 
-    // --- PLACEMENT HELPERS ---
+    // --- PLACEMENT ---
 
-    tryPlaceRoom(sourceRoom, direction, type) {
+    tryPlaceRoom(sourceRoom, direction, type, height) {
         const p = this.params;
-        // Try shrinking room size if fit fails
         for (let shrink = 0; shrink < 5; shrink++) {
             const sizeReduction = shrink * 3;
             const w = Math.max(p.roomMinSize, this.rng.range(p.roomMinSize, p.roomMaxSize) - sizeReduction);
             const h = Math.max(p.roomMinSize, this.rng.range(p.roomMinSize, p.roomMaxSize) - sizeReduction);
             
-            // Try different alignments
             for (let attempt = 0; attempt < 4; attempt++) {
                 const gap = this.rng.range(1, 4);
                 const offset = this.rng.range(-4, 4);
@@ -168,13 +180,27 @@ export class DungeonGenerator {
                     case 'W': x = exit.x - w - gap; y = exit.y - Math.floor(h / 2) + offset; break;
                 }
                 
-                const newRoom = { x: Math.floor(x), y: Math.floor(y), w, h, type, connectionDir: direction };
+                const newRoom = { 
+                    x: Math.floor(x), y: Math.floor(y), w, h, type, 
+                    connectionDir: direction,
+                    baseHeight: height,
+                    // Randomize shape for branches
+                    roomShape: (type === 'branch') ? this.pickRandomShape() : RoomTypes.NORMAL
+                };
                 this.finalizeRoom(newRoom);
                 
                 if (this.canPlaceRoom(newRoom)) return newRoom;
             }
         }
         return null;
+    }
+
+    pickRandomShape() {
+        const r = this.rng.next();
+        if (r < 0.5) return RoomTypes.NORMAL;
+        if (r < 0.7) return RoomTypes.PIT;
+        if (r < 0.9) return RoomTypes.PODIUM;
+        return RoomTypes.BRIDGE;
     }
 
     finalizeRoom(room) {
@@ -186,7 +212,6 @@ export class DungeonGenerator {
 
     canPlaceRoom(room, padding = 2) {
         if (room.x < 4 || room.y < 4 || room.x + room.w >= this.width - 4 || room.y + room.h >= this.height - 4) return false;
-        
         for (const other of this.rooms) {
             if (!(other.x > room.x + room.w + padding ||
                   other.x + other.w + padding < room.x ||
@@ -198,22 +223,15 @@ export class DungeonGenerator {
         return true;
     }
 
-    // --- CARVING (UPDATED FOR OBJECT DATA) ---
-
-    carveRoom(room) {
-        // Floor = Type 0, Height 0 (for now)
-        for (let y = room.y; y < room.y + room.h; y++) {
-            for (let x = room.x; x < room.x + room.w; x++) {
-                this.safeSet(x, y, 0, 0); 
-            }
-        }
-    }
+    // --- CONNECTIONS WITH HEIGHT ---
 
     connectRooms(room1, room2, direction) {
         const exit1 = this.getExitPoint(room1, direction);
         const exit2 = this.getExitPoint(room2, this.getOpposite(direction));
         
-        const isDoorway = this.rng.next() < 0.20;
+        // Always corridor if height difference exists (No doorways on slopes)
+        const isLevel = (room1.baseHeight === room2.baseHeight);
+        const isDoorway = isLevel && this.rng.next() < 0.20;
         let width;
 
         if (isDoorway) {
@@ -226,14 +244,11 @@ export class DungeonGenerator {
             else width = this.rng.range(7, 9);
         }
 
-        // Logic to connect points (simplified L-shape)
-        const x1 = exit1.x, y1 = exit1.y;
-        const x2 = exit2.x, y2 = exit2.y;
-        
-        this.carveCorridor(x1, y1, x2, y2, width);
+        // Pass start/end heights to carver
+        this.carveCorridor(exit1.x, exit1.y, exit2.x, exit2.y, width, room1.baseHeight, room2.baseHeight);
     }
 
-    carveCorridor(x1, y1, x2, y2, width) {
+    carveCorridor(x1, y1, x2, y2, width, h1, h2) {
         x1 = Math.floor(x1); y1 = Math.floor(y1);
         x2 = Math.floor(x2); y2 = Math.floor(y2);
         const halfW = Math.floor(width / 2);
@@ -241,53 +256,79 @@ export class DungeonGenerator {
         const startX = Math.min(x1, x2), endX = Math.max(x1, x2);
         const startY = Math.min(y1, y2), endY = Math.max(y1, y2);
 
+        // Calculate total distance for interpolation
+        const totalDist = (endX - startX) + (endY - startY);
+        let currentDist = 0;
+
+        // Note: This is a simplified linear interpolation. 
+        // It works for L-shapes, but steps might be uneven if segments vary wildly.
+        
+        const setStep = (x, y, dist) => {
+            // Lerp height
+            let t = 0;
+            if (totalDist > 0) t = dist / totalDist;
+            // Snap to nearest 0.5 step
+            const h = h1 + (h2 - h1) * t;
+            const snappedH = Math.round(h * 2) / 2;
+            
+            for (let w = -halfW; w <= halfW; w++) {
+                this.safeSet(x, y + w, 0, snappedH); // Horizontal
+                this.safeSet(x + w, y, 0, snappedH); // Vertical fix attempt? No, context depends.
+            }
+        };
+
         // Horizontal Leg
         for (let x = startX; x <= endX; x++) {
-            for (let w = -halfW; w <= halfW; w++) this.safeSet(x, y1 + w, 0, 0);
+            const t = (x - startX) / (totalDist || 1);
+            const h = h1 + (h2 - h1) * t;
+            const snappedH = Math.round(h * 2) / 2;
+            
+            for (let w = -halfW; w <= halfW; w++) {
+                this.safeSet(x, y1 + w, 0, snappedH);
+            }
+            currentDist++;
         }
+
         // Vertical Leg
+        // Note: Start height for vertical leg should continue from where horizontal left off
+        const vertStartDist = (endX - startX);
+        
         for (let y = startY; y <= endY; y++) {
-            for (let w = -halfW; w <= halfW; w++) this.safeSet(x2 + w, y, 0, 0);
+            const t = (vertStartDist + (y - startY)) / (totalDist || 1);
+            const h = h1 + (h2 - h1) * t;
+            const snappedH = Math.round(h * 2) / 2;
+
+            for (let w = -halfW; w <= halfW; w++) {
+                this.safeSet(x2 + w, y, 0, snappedH);
+            }
         }
     }
 
     safeSet(x, y, type, height) {
         x = Math.floor(x); y = Math.floor(y);
         if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-            // Update the object properties
             this.map[y][x].type = type;
             this.map[y][x].height = height;
         }
     }
 
-    // --- NORMALIZATION (CENTERING) ---
-
+    // --- UTILITIES (Keep existing) ---
     normalizeCoordinates() {
-        // 1. Find bounding box of all floors
         let minX = this.width, maxX = 0, minY = this.height, maxY = 0;
-        
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
-                if (this.map[y][x].type === 0) { // If floor
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
+                if (this.map[y][x].type === 0 || this.map[y][x].type === 2) { // Include chasms in bounds
+                    if (x < minX) minX = x; if (x > maxX) maxX = x;
+                    if (y < minY) minY = y; if (y > maxY) maxY = y;
                 }
             }
         }
-
-        // Pad
         minX -= 2; minY -= 2; maxX += 2; maxY += 2;
-
         const contentW = maxX - minX;
         const contentH = maxY - minY;
-        
         const offsetX = Math.floor((this.width - contentW) / 2) - minX;
         const offsetY = Math.floor((this.height - contentH) / 2) - minY;
 
-        // 2. Shift Map
-        // We create a new array to avoid overwriting issues during shift
         const newMap = [];
         for (let y = 0; y < this.height; y++) {
             const row = [];
@@ -296,15 +337,12 @@ export class DungeonGenerator {
             }
             newMap.push(row);
         }
-
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
-                // If it's a floor or relevant tile
-                if (this.map[y][x].type === 0) {
+                if (this.map[y][x].type !== 1) {
                     const newX = x + offsetX;
                     const newY = y + offsetY;
                     if (newX >= 0 && newX < this.width && newY >= 0 && newY < this.height) {
-                        // Copy data
                         newMap[newY][newX] = { ...this.map[y][x] };
                     }
                 }
@@ -312,21 +350,12 @@ export class DungeonGenerator {
         }
         this.map = newMap;
 
-        // 3. Shift Metadata (Rooms/Doors)
         this.rooms.forEach(r => {
-            r.x += offsetX;
-            r.y += offsetY;
-            r.center.x += offsetX;
-            r.center.y += offsetY;
+            r.x += offsetX; r.y += offsetY;
+            r.center.x += offsetX; r.center.y += offsetY;
         });
-
-        this.doorways.forEach(d => {
-            d.x += offsetX;
-            d.y += offsetY;
-        });
+        this.doorways.forEach(d => { d.x += offsetX; d.y += offsetY; });
     }
-
-    // --- UTILITIES ---
 
     getExitPoint(room, direction) {
         const jitter = this.rng.range(-2, 2);
@@ -337,7 +366,6 @@ export class DungeonGenerator {
             case 'W': return { x: room.x, y: room.y + Math.floor(room.h / 2) + jitter };
         }
     }
-
     getOpposite(dir) { return { 'N': 'S', 'S': 'N', 'E': 'W', 'W': 'E' }[dir]; }
     dirToAngle(dir) { return { 'N': -90, 'S': 90, 'E': 0, 'W': 180 }[dir]; }
     angleToDir(angle) {
@@ -347,7 +375,6 @@ export class DungeonGenerator {
         if (angle >= 135 && angle < 225) return 'W';
         return 'N';
     }
-
     assignStartEnd() {
         if (this.mainPath && this.mainPath.length > 0) {
             this.startRoom = this.mainPath[0];
@@ -358,11 +385,9 @@ export class DungeonGenerator {
         }
     }
 
-    // Helper for Spawner.js
     getLootSpots(room, count) {
         const spots = [];
         let attempts = 0;
-        
         while (spots.length < count && attempts < 20) {
             attempts++;
             const rx = this.rng.range(room.x + 2, room.x + room.w - 2);
@@ -370,10 +395,16 @@ export class DungeonGenerator {
             
             const dx = rx - room.center.x;
             const dy = ry - room.center.y;
-            if (Math.sqrt(dx*dx + dy*dy) < 3) continue; // Too close to center
+            if (Math.sqrt(dx*dx + dy*dy) < 3) continue; 
 
-            if (this.map[ry][rx].type === 0) {
-                spots.push({ x: rx, z: ry });
+            // Ensure valid floor (Type 0) AND safe from chasm edges?
+            // For now, just check it's a floor
+            const tile = this.map[ry][rx];
+            if (tile.type === 0) {
+                // Ensure loot sits ON the floor (using tile height)
+                // Spawner needs to read this height? 
+                // Yes, we return the coords, spawner should look up height.
+                spots.push({ x: rx, z: ry }); 
             }
         }
         return spots;
