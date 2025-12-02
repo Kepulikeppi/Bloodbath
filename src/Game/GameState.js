@@ -1,6 +1,6 @@
 import { Config } from '../Config.js';
 import { WeaponConfig } from '../WeaponConfig.js';
-import { LootTypes } from '../LootConfig.js'; // We will create this next
+import { LootTypes } from '../LootConfig.js'; 
 
 export class GameState {
     constructor() {
@@ -65,14 +65,21 @@ export class GameState {
         }
     }
 
+    // NEW: Apply data loaded from Server
+    setData(serverData) {
+        if (!serverData) return;
+        // Merge allows us to keep structure if server data is partial/old version
+        this.data = { ...this.data, ...serverData };
+        this.save(); // Sync to sessionStorage immediatey
+    }
+
     reset() { sessionStorage.removeItem('bloodbath_gamestate'); }
     
-    // === LOOT & ECONOMY HELPERS ===
-
+    // ... [Existing methods below: addXp, heal, etc. Keep them as they were] ...
+    
     addXp(amount) { 
         this.data.xp += amount; 
         this.save(); 
-        // TODO: trigger UI update event
     }
     
     heal(amount) {
@@ -80,19 +87,17 @@ export class GameState {
     }
 
     addResource(type, amount) {
-        // Map LootConfig types to internal state keys
         switch(type) {
             case LootTypes.SCRAP: this.data.materials.metal += amount; break;
             case LootTypes.ELEC:  this.data.materials.electronics += amount; break;
             case LootTypes.CHIP:  this.data.materials.microchips += amount; break;
             case LootTypes.RAGE:  this.data.consumables.ragePills += amount; break;
-            case LootTypes.BATTERY: this.data.ammo.battery += amount; break; // Battery is treated as ammo
+            case LootTypes.BATTERY: this.data.ammo.battery += amount; break; 
         }
         this.save();
     }
 
     addAmmo(lootType, amount) {
-        // Map LootTypes to internal ammo keys
         let key = null;
         switch(lootType) {
             case LootTypes.AMMO_9MM:   key = '9mm'; break;
@@ -109,8 +114,6 @@ export class GameState {
             this.save();
         }
     }
-
-    // === EXISTING HELPERS ===
 
     modifyHP(amount) {
         this.data.hp += amount;

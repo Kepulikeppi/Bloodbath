@@ -196,6 +196,10 @@ export class LevelManager {
             this.nextBtn.disabled = true;
             this.nextBtn.style.opacity = "0.5";
             this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_UPLINKING;
+            
+            const payload = {
+                player_data: state.data
+            };
 
             fetch('api/level_complete.php')
                 .then(res => res.json())
