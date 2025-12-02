@@ -10,7 +10,11 @@ export const Config = {
     ROOM_MAX_SIZE: 30,
     DIRECTION_WIGGLE: 80,
     CORRIDOR_WIDTH: 4,
-    WALL_HEIGHT: 4,
+    
+    // NEW: Variable Room Heights
+    ROOM_HEIGHT_MIN: 3.5,
+    ROOM_HEIGHT_MAX: 8.0,
+    DEFAULT_WALL_HEIGHT: 8.0, // For "solid" walls bounds
 
     // --- PLAYER PHYSICS ---
     PLAYER_SPEED: 8.0,
@@ -39,18 +43,13 @@ export const Config = {
     MENU_PARTICLE_SPEED: 0.5,
     MENU_CAMERA_SWAY: 0.5,
     
-    // --- ASSETS (R2 CLOUD) ---
-    // We use the public R2 URL. Caching logic in LevelBuilder will handle the rest.
+    // --- ASSETS ---
     TEXTURE_PATH: 'https://pub-001995af37744801acc11c0d74cd4450.r2.dev/textures/',
-    
     TEX_WALL: 'Bricks069_2K-JPG',
     TEX_FLOOR: 'PavingStones116_2K-JPG',
     TEX_CEILING: 'Asphalt013_1K-JPG',
-    
-    // Blood decal is also on R2 now
     TEX_BLOOD: 'blood_decal.png', 
 	
-    // --- GORE SETTINGS ---
     GORE: {
         COLOR_BLOOD: 0x740707, 
         COLOR_FLESH: 0x740707, 
