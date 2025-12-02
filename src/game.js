@@ -415,6 +415,8 @@ document.body.addEventListener('click', () => {
         loadingUI.hide();
         gameActive = true;
         engine.controls.lock();
+        levelManager.startTimer();
+
         if (sessionStorage.getItem('bloodbath_music_active') === 'true' && !audioManager.isPlaying) {
             audioManager.play();
         }

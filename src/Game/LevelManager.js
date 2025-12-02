@@ -12,6 +12,9 @@ export class LevelManager {
         this.loadingUI = loadingUI;
         this.audioManager = audioManager;
         
+        // FIX: Initialize as null. Timer starts only when player clicks.
+        this.startTime = null; 
+
         this.ui = document.getElementById('level-screen');
         this.nextBtn = document.getElementById('btn-next-level');
         
@@ -32,6 +35,22 @@ export class LevelManager {
                 window.location.reload();
             });
         }
+    }
+
+    // NEW: Call this when loading screen hides
+    startTimer() {
+        this.startTime = Date.now();
+    }
+
+    // NEW: Calculates duration for just this level
+    getLevelTime() {
+        if (!this.startTime) return "00m 00s";
+
+        const ms = Date.now() - this.startTime;
+        const minutes = Math.floor(ms / 60000);
+        const seconds = ((ms % 60000) / 1000).toFixed(0);
+        const secStr = seconds.length < 2 ? "0" + seconds : seconds;
+        return `${minutes}m ${secStr}s`;
     }
 
     loadLevel(level, seed, onComplete) {
@@ -55,7 +74,7 @@ export class LevelManager {
             
             if(this.loadingUI) this.loadingUI.update(60, UIConfig.LOADING.STEP_GEO);
 
-            import('../ProcGen/LevelBuilder.js').then(async Module => {
+            import('./ProcGen/LevelBuilder.js').then(async Module => {
                 const builder = new Module.LevelBuilder(this.engine.scene);
                 builder.build(mapData);
                 
@@ -64,7 +83,7 @@ export class LevelManager {
 
                 const levelMeshes = [];
                 this.engine.scene.traverse(obj => {
-                    if (obj.isMesh) levelMeshes.push(obj);
+                    if (obj.isInstancedMesh) levelMeshes.push(obj);
                 });
 
                 if(this.loadingUI) this.loadingUI.update(80, UIConfig.LOADING.STEP_SPAWN);
@@ -79,15 +98,12 @@ export class LevelManager {
 
                 if(this.loadingUI) this.loadingUI.update(90, UIConfig.LOADING.STEP_SHADER);
 
-                // === SHADOW MAP WARMUP ===
-                
-                const tacticalFlash = this.engine.flashlight;
+                // 360 Spin Warmup
+                const weapon = entities.weapon;
+                const flash = weapon ? weapon.flashLight : null;
                 const startRotY = this.engine.camera.rotation.y;
-                let originalIntensity = Config.FL_INTENSITY;
-                let originalAngle = Config.FL_ANGLE;
-
-                // 1. Disable Frustum Culling globally
                 const cullingState = new Map();
+                
                 this.engine.scene.traverse(obj => {
                     if (obj.isMesh) {
                         cullingState.set(obj, obj.frustumCulled);
@@ -95,51 +111,27 @@ export class LevelManager {
                     }
                 });
 
-                // 2. Super-Charge the Tactical Flashlight
-                if (tacticalFlash) {
-                    originalIntensity = tacticalFlash.intensity;
-                    originalAngle = tacticalFlash.angle;
-                    
-                    tacticalFlash.intensity = Config.FL_INTENSITY;
-                    tacticalFlash.angle = Math.PI / 2; // Wide angle for maximum coverage
-                    tacticalFlash.updateMatrixWorld(true);
+                if (flash) {
+                    flash.intensity = 1.0;
+                    flash.visible = true;
                 }
+                this.engine.renderer.compile(this.engine.scene, this.engine.camera);
 
-                // 3. Force shadow map allocation with initial render
-                if (tacticalFlash && tacticalFlash.shadow) {
-                    tacticalFlash.shadow.needsUpdate = true;
-                }
-                this.engine.renderer.shadowMap.needsUpdate = true;
-                this.engine.renderer.render(this.engine.scene, this.engine.camera);
-
-                // 4. Spin to render shadows in all 8 directions
-                for (let i = 0; i < 8; i++) {
-                    this.engine.camera.rotation.y = startRotY + (i * (Math.PI / 4));
+                for(let i = 0; i < 4; i++) {
+                    this.engine.camera.rotation.y = startRotY + (i * (Math.PI / 2));
                     this.engine.camera.updateMatrixWorld(true);
-                    
-                    if (tacticalFlash && tacticalFlash.shadow) {
-                        tacticalFlash.shadow.needsUpdate = true;
-                    }
                     this.engine.renderer.render(this.engine.scene, this.engine.camera);
                 }
 
-                // 5. Restore Everything
                 this.engine.camera.rotation.y = startRotY;
                 this.engine.camera.updateMatrixWorld(true);
-
-                if (tacticalFlash) {
-                    tacticalFlash.intensity = originalIntensity > 0.1 ? originalIntensity : 0.001; 
-                    tacticalFlash.angle = originalAngle;
-                }
+                if (flash) flash.intensity = 0.001; 
 
                 this.engine.scene.traverse(obj => {
                     if (obj.isMesh && cullingState.has(obj)) {
                         obj.frustumCulled = cullingState.get(obj);
                     }
                 });
-
-                this.engine.renderer.shadowMap.needsUpdate = false;
-                // =========================
 
                 if(this.loadingUI) this.loadingUI.complete();
 
@@ -160,10 +152,8 @@ export class LevelManager {
 
     checkExit(player, exitObject) {
         if (this.isLevelFinished || !exitObject || !player) return;
-
         const dx = this.engine.camera.position.x - exitObject.position.x;
         const dz = this.engine.camera.position.z - exitObject.position.z;
-        
         if (Math.sqrt(dx*dx + dz*dz) < 1.5) {
             this.finishLevel();
         }
@@ -179,6 +169,7 @@ export class LevelManager {
         if (this.ui) {
             this.ui.style.display = 'flex';
             
+            // Use IDs from UIConfig/Initializer
             const elLevel = document.getElementById('score-level-num');
             if (elLevel) elLevel.innerText = this.currentLevel;
 
@@ -188,42 +179,44 @@ export class LevelManager {
             const elAcc = document.getElementById('score-acc');
             if (elAcc) elAcc.innerText = state.getAccuracy();
 
+            // FIX: Use getLevelTime() for the Level Cleared screen
             const elTime = document.getElementById('score-time');
-            if (elTime) elTime.innerText = state.getRunTime();
+            if (elTime) elTime.innerText = this.getLevelTime();
         }
 
         if (this.nextBtn) {
             this.nextBtn.disabled = true;
             this.nextBtn.style.opacity = "0.5";
             this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_UPLINKING;
-            
-            const payload = {
-                player_data: state.data
-            };
 
-            fetch('api/level_complete.php')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'ok') {
-                        const nextLvl = this.currentLevel + 1;
-                        sessionStorage.setItem('bloodbath_level_cache', nextLvl);
+            const payload = { player_data: state.data };
 
-                        this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ENTER_PREFIX + nextLvl;
-                        this.nextBtn.disabled = false;
-                        this.nextBtn.style.opacity = "1.0";
-                    } else {
-                        console.error("Server Error:", data);
-                        this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ERROR_SERVER;
-                        this.nextBtn.disabled = false;
-                        this.nextBtn.style.opacity = "1.0";
-                    }
-                })
-                .catch(err => {
-                    console.error("Level Sync Failed", err);
-                    this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ERROR_NET;
+            fetch('api/level_complete.php', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    const nextLvl = this.currentLevel + 1;
+                    sessionStorage.setItem('bloodbath_level_cache', nextLvl);
+
+                    this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ENTER_PREFIX + nextLvl;
                     this.nextBtn.disabled = false;
                     this.nextBtn.style.opacity = "1.0";
-                });
+                } else {
+                    console.error("Server Error:", data);
+                    this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ERROR_SERVER;
+                    this.nextBtn.disabled = false;
+                    this.nextBtn.style.opacity = "1.0";
+                }
+            })
+            .catch(err => {
+                console.error("Level Sync Failed", err);
+                this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ERROR_NET;
+                this.nextBtn.disabled = false;
+                this.nextBtn.style.opacity = "1.0";
+            });
         }
     }
 }
