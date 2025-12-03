@@ -1,7 +1,8 @@
 import * as THREE from 'https://esm.sh/three@0.160.0';
 import { Config } from '../Config.js';
 import { Player } from './Player.js';
-import { Enemy } from './Enemy.js'; 
+import { Enemy } from './Enemy.js';
+import { EnemyFleshRenderer } from './Enemies/EnemyFleshRenderer.js';
 import { RangedWeapon } from './Weapons/RangedWeapon.js';
 import { WeaponConfig } from '../WeaponConfig.js';
 import { LootManager } from './LootManager.js';
@@ -14,7 +15,7 @@ export class Spawner {
             if (y < 0 || y >= mapData.length || x < 0 || x >= mapData[0].length) return false;
             return mapData[y][x].type === 0;
         };
-        
+
         // Try center
         if (startRoom) {
             const cx = startRoom.center.x;
@@ -51,16 +52,16 @@ export class Spawner {
             player: null,
             weapon: null,
             enemies: [],
-            pickups: [], 
+            pickups: [],
             exit: null
         };
 
         // 1. Player
         const spawnPoint = this.findSafeSpawn(mapData, generator.startRoom);
         const playerY = this.getFloorY(mapData, spawnPoint.x, spawnPoint.z) + Config.EYE_HEIGHT;
-        
+
         engine.camera.position.set(spawnPoint.x + 0.5, playerY, spawnPoint.z + 0.5);
-        
+
         // Rotate player to face the first corridor (simple logic: look at center of room)
         // or look towards map center.
         // For now, just reset rotation.
@@ -89,11 +90,17 @@ export class Spawner {
                 // Actually, updated Enemy.js applies physics, so it should snap to floor?
                 // YES: Enemy.js update() calls applyPhysics() which snaps to floor.
                 // However, setting initial position correctly prevents 1 frame of falling.
-                
-                const enemy = new Enemy(engine.scene, ex, ez, audioManager, 'WATCHER');
+
+                let enemy;
+                if (Math.random() > 0.5) {
+                    enemy = new Enemy(engine.scene, ex, ez, audioManager, 'WATCHER');
+                } else {
+                    enemy = new EnemyFleshRenderer(engine.scene, ex, ez, audioManager);
+                }
+
                 // Manually correct height immediately to prevent falling visual glitch
-                enemy.mesh.position.y = ey; 
-                
+                enemy.mesh.position.y = ey;
+
                 entities.enemies.push(enemy);
 
                 // --- SPAWN LOOT ---
@@ -101,9 +108,9 @@ export class Spawner {
                 let count = 1;
 
                 if (room === generator.endRoom) {
-                    lootType = 'NONE'; 
+                    lootType = 'NONE';
                 } else if (room.type === 'branch') {
-                    lootType = 'RARE'; 
+                    lootType = 'RARE';
                     count = Math.random() > 0.5 ? 2 : 1;
                 } else {
                     if (Math.random() > 0.6) lootType = 'NONE';
@@ -116,7 +123,7 @@ export class Spawner {
                         if (itemKey) {
                             // Look up height for this specific spot
                             const lootY = this.getFloorY(mapData, spot.x, spot.z);
-                            
+
                             const p = new Pickup(engine.scene, itemKey, new THREE.Vector3(spot.x + 0.5, lootY, spot.z + 0.5));
                             entities.pickups.push(p);
                         }
@@ -130,10 +137,10 @@ export class Spawner {
             const ex = generator.endRoom.center.x;
             const ez = generator.endRoom.center.y;
             const ey = this.getFloorY(mapData, ex, ez);
-            
+
             entities.exit = builder.createExit(ex, ez);
             // Adjust exit beacon height
-            entities.exit.position.y = ey + 0.45; 
+            entities.exit.position.y = ey + 0.45;
         }
 
         return entities;

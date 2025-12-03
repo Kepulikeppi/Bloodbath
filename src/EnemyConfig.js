@@ -24,4 +24,24 @@ export const EnemyConfig = {
         emissive: 0x000000,
         scale: 0.5
     },
+
+    FLESH_RENDERER: {
+        name: "Flesh Renderer",
+        enemyType: EnemyTypes.BIO,
+
+        hp: 80,
+        speed: 4.0,
+
+        aggroRange: 25,
+        stopDist: 1.0,
+        radius: 0.5,
+
+        damage: 15,
+        attackRange: 1.2,
+        attackSpeed: 0.8,
+
+        color: 0xcc6666,
+        emissive: 0x000000,
+        scale: 0.7
+    },
 };
