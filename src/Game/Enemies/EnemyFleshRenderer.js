@@ -9,6 +9,9 @@ export class EnemyFleshRenderer extends Enemy {
         this.animTime = 0;
         this.limbs = {}; // Store references to limbs for animation
 
+        this.deathTimer = 0;
+        this.shouldRemove = false;
+
         this.buildMesh();
     }
 
@@ -124,9 +127,46 @@ export class EnemyFleshRenderer extends Enemy {
         if (!this.isDead) {
             this.updateAnimations(delta);
         } else {
-            // Simple death pose
-            this.mesh.rotation.x = -Math.PI / 2;
-            this.mesh.position.y = 0.2;
+            // Death Animation
+            this.deathTimer += delta;
+
+            // Phase 1: Fall Down (0 to 0.5s)
+            if (this.deathTimer < 0.5) {
+                const progress = this.deathTimer / 0.5;
+                // Fall back
+                this.mesh.rotation.x = -Math.PI / 2 * progress;
+                // Lower to ground (adjust Y based on pivot)
+                // Pivot is at feet (0,0,0) usually, but mesh center might be different.
+                // In buildMesh, torso is at y=1.1.
+                // If we rotate the whole group around X (feet), it should look okay.
+                // But we might need to adjust Y to prevent floating.
+                this.mesh.position.y = Math.max(0.2, this.mesh.position.y - delta * 2.0);
+            } else {
+                // Stay on ground
+                this.mesh.rotation.x = -Math.PI / 2;
+                this.mesh.position.y = 0.2;
+            }
+
+            // Phase 2: Cleanup (after 10s)
+            if (this.deathTimer > 10.0) {
+                // Shrink out
+                const shrinkProgress = (this.deathTimer - 10.0);
+                const scale = Math.max(0, 1.0 - shrinkProgress);
+                this.mesh.scale.set(scale, scale, scale);
+
+                if (this.deathTimer > 11.0) {
+                    this.dispose();
+                    // We also need to remove ourselves from the main enemies list in game.js
+                    // But game.js doesn't check for disposed enemies automatically in the loop?
+                    // The loop is: enemies.forEach(enemy => enemy.update(...));
+                    // If we dispose, we are still in the array.
+                    // We need a way to signal removal. 
+                    // For now, we can set a flag 'shouldRemove' and game.js should clean it up?
+                    // Or we can just make it invisible and non-interactive.
+                    this.mesh.visible = false;
+                    this.shouldRemove = true; // We'll need to update game.js to check this
+                }
+            }
         }
     }
 
