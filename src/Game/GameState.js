@@ -1,17 +1,16 @@
 import { Config } from '../Config.js';
 import { WeaponConfig } from '../WeaponConfig.js';
 import { LootTypes } from '../LootConfig.js'; 
+import { TechTreeConfig } from '../TechTreeConfig.js'; // NEW
 
 export class GameState {
     constructor() {
-        // DEFAULT DATA
         this.data = {
             hp: 100,
             maxHp: 100,
             armor: 0.0,
             xp: 0,
             
-            // Reserves (Bullets in your pocket)
             ammo: {
                 '9mm': 50,
                 '44mag': 0,
@@ -24,20 +23,23 @@ export class GameState {
             materials: { metal: 0, electronics: 0, microchips: 0 },
             consumables: { ragePills: 0 },
 
-            // Weapons Inventory
             unlockedWeapons: ['PISTOL_9MM'], 
-            currentSlot: 2, 
+            
+            // NEW: Tech Tracking
+            unlockedTech: [],
+            upgrades: {}, // Key-value flags for logic checks
 
-            // Detailed Weapon State
+            currentSlot: 2, 
             weaponData: {
-                'PISTOL_9MM': {
-                    magCurrent: 17,
-                    magSizeMod: 0, 
-                    isAuto: false
-                }
+                'PISTOL_9MM': { magCurrent: 17, magSizeMod: 0, isAuto: false }
             },
             
-            attributes: { speedMult: 1.0, sprintMult: 1.0, staminaMax: 100 },
+            attributes: { 
+                speedMult: 1.0, 
+                sprintMult: 1.0, 
+                staminaMax: 100, 
+                reloadSpeedMult: 1.0 
+            },
             
             runStats: {
                 kills: 0,
@@ -58,33 +60,53 @@ export class GameState {
             const parsed = JSON.parse(saved);
             this.data = { ...this.data, ...parsed };
             
-            if(!this.data.weaponData) this.data.weaponData = {
-                'PISTOL_9MM': { magCurrent: 17, magSizeMod: 0, isAuto: false }
-            };
-            if(!this.data.unlockedWeapons) this.data.unlockedWeapons = ['PISTOL_9MM'];
+            // Safety defaults
+            if(!this.data.unlockedTech) this.data.unlockedTech = [];
+            if(!this.data.upgrades) this.data.upgrades = {};
+            if(!this.data.attributes) this.data.attributes = { speedMult: 1.0, sprintMult: 1.0, staminaMax: 100, reloadSpeedMult: 1.0 };
         }
     }
 
-    // NEW: Apply data loaded from Server
     setData(serverData) {
         if (!serverData) return;
-        // Merge allows us to keep structure if server data is partial/old version
         this.data = { ...this.data, ...serverData };
-        this.save(); // Sync to sessionStorage immediatey
+        this.save(); 
     }
 
     reset() { sessionStorage.removeItem('bloodbath_gamestate'); }
     
-    // ... [Existing methods below: addXp, heal, etc. Keep them as they were] ...
-    
-    addXp(amount) { 
-        this.data.xp += amount; 
-        this.save(); 
+    // === TECH TREE ===
+
+    purchaseTech(techId) {
+        const tech = TechTreeConfig[techId];
+        if (!tech) return false;
+        
+        // Check if already owned
+        if (this.data.unlockedTech.includes(techId)) return false;
+        
+        // Check Cost
+        if (tech.currency === 'xp') {
+            if (this.data.xp < tech.cost) return false;
+            this.data.xp -= tech.cost;
+        }
+
+        // Unlock
+        this.data.unlockedTech.push(techId);
+        
+        // Apply
+        if (tech.effect) {
+            tech.effect(this);
+        }
+
+        this.save();
+        return true;
     }
+
+    // ... [Keep remaining methods: addXp, heal, addResource, addAmmo, modifyHP, hasWeapon, getWeaponState, etc.] ...
+    // For brevity, assuming you keep the existing methods below unchanged.
     
-    heal(amount) {
-        this.modifyHP(amount);
-    }
+    addXp(amount) { this.data.xp += amount; this.save(); }
+    heal(amount) { this.modifyHP(amount); }
 
     addResource(type, amount) {
         switch(type) {
@@ -107,9 +129,12 @@ export class GameState {
             case LootTypes.AMMO_127:   key = '127mm'; break;
             case LootTypes.AMMO_40MM:  key = '40mm'; break;
         }
-
         if (key) {
             if (!this.data.ammo[key]) this.data.ammo[key] = 0;
+            // Check for Ammo Cap upgrade
+            let limit = 999; // Default cap
+            // if (this.data.upgrades['AMMO_CAP_1']) limit = 999 * 1.5; 
+            
             this.data.ammo[key] += amount;
             this.save();
         }
@@ -139,7 +164,6 @@ export class GameState {
     getMaxMag(weaponId) {
         const state = this.getWeaponState(weaponId);
         const base = WeaponConfig[weaponId] ? WeaponConfig[weaponId].baseMagSize : 0;
-        
         if (weaponId === 'PISTOL_9MM') {
             if (state.magSizeMod === 1) return 33; 
             if (state.magSizeMod === 2) return 100; 
@@ -163,7 +187,6 @@ export class GameState {
 
         const wState = this.getWeaponState(weaponId);
         const maxMag = this.getMaxMag(weaponId);
-        
         const needed = maxMag - wState.magCurrent;
         if (needed <= 0) return false; 
 
@@ -171,21 +194,15 @@ export class GameState {
         if (reserve <= 0) return false; 
 
         const amountToLoad = Math.min(needed, reserve);
-        
         this.data.ammo[wConfig.ammoType] -= amountToLoad;
         wState.magCurrent += amountToLoad;
-        
         this.save();
         return true;
     }
 
     recordShot() { this.data.runStats.shotsFired++; }
     recordHit() { this.data.runStats.shotsHit++; }
-    
-    recordKill() {
-        this.data.runStats.kills++;
-        this.addXp(10); 
-    }
+    recordKill() { this.data.runStats.kills++; this.addXp(10); }
 
     getAccuracy() {
         if (this.data.runStats.shotsFired === 0) return "0%";

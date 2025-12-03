@@ -57,6 +57,7 @@ export const UIConfig = {
         TITLE_SUFFIX: " CLEARED", 
         BTN_UPLINKING: "UPLINKING...",
         BTN_ENTER_PREFIX: "ENTER LEVEL ",
+        BTN_CONTINUE_TECH: "CONTINUE",
         BTN_ERROR_SERVER: "UPLINK ERROR (RETRY)",
         BTN_ERROR_NET: "CONNECTION LOST (FORCE RELOAD)",
         STAT_KILLS: "KILLS:",
@@ -80,5 +81,15 @@ export const UIConfig = {
         WARN_LOGOUT: "RESET SESSION?\nTHIS WILL DELETE YOUR IDENTITY.",
         INPUT_PLACEHOLDER: "ENTER A NAME...",
         ERROR_EMPTY: "INPUT A NAME FIRST!"
+    },
+
+    //Tech tree
+    TECH: {
+        TITLE: "UPGRADE STATION",
+        SELECT_PROMPT: "SELECT A MODULE",
+        SELECT_DESC: "Hover over an upgrade to see details.",
+        BTN_NEXT_LEVEL: "ENTER NEXT SECTOR >>",
+        STATUS_INSTALLED: "INSTALLED",
+        STATUS_LOCKED: "LOCKED"
     }
 };

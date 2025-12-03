@@ -160,6 +160,29 @@
         <button id="btn-next-level"></button>
     </div>
     
+       <!-- TECH TREE SCREEN -->
+    <div id="techtree-overlay" style="display: none;">
+        <div class="tech-header">
+            <h1 id="tt-title"></h1>
+            <div class="tech-resources">
+                <span id="lbl-tt-xp">XP:</span> <span id="tech-xp-val">0</span> | 
+                <span id="lbl-tt-scrap">SCRAP:</span> <span id="tech-scrap-val">0</span>
+            </div>
+        </div>
+
+        <div id="tech-grid">
+            <!-- Nodes inserted by JS -->
+        </div>
+
+        <div class="tech-footer">
+            <div id="tech-desc-box">
+                <h3 id="tech-name-display"></h3>
+                <p id="tech-desc-display"></p>
+            </div>
+            <button id="btn-launch-next"></button>
+        </div>
+    </div>    
+
     <!-- Load Game Logic -->
     <script type="module" src="./src/game.js"></script>
 </body>

@@ -404,6 +404,7 @@ document.getElementById('btn-restart').addEventListener('click', () => {
 document.getElementById('btn-menu').addEventListener('click', () => window.location.href = 'index.html');
 
 document.body.addEventListener('click', () => {
+    if (levelManager.isLevelFinished) return;
     if (!isLevelReady) return;
     if (isDying) return; 
 

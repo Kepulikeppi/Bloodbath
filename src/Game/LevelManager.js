@@ -5,6 +5,7 @@ import { LevelBuilder } from '../ProcGen/LevelBuilder.js';
 import { Spawner } from './Spawner.js';
 import { DebrisSystem } from './DebrisSystem.js';
 import { state } from './GameState.js'; 
+import { TechTreeUI } from '../UI/TechTreeUI.js';
 
 export class LevelManager {
     constructor(engine, loadingUI, audioManager) {
@@ -12,7 +13,6 @@ export class LevelManager {
         this.loadingUI = loadingUI;
         this.audioManager = audioManager;
         
-        // FIX: Initialize as null. Timer starts only when player clicks.
         this.startTime = null; 
 
         this.ui = document.getElementById('level-screen');
@@ -21,31 +21,47 @@ export class LevelManager {
         this.isLevelFinished = false;
         this.currentLevel = 1; 
 
+        // Initialize Tech Tree UI with Save & Reload logic
+        this.techTree = new TechTreeUI(() => {
+            const payload = { player_data: state.data };
+            
+            fetch('api/save_progress.php', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                this.handleReload();
+            })
+            .catch(err => {
+                console.error("Save failed, forcing reload", err);
+                this.handleReload();
+            });
+        });
+
         if (this.nextBtn) {
             const newBtn = this.nextBtn.cloneNode(true);
             this.nextBtn.parentNode.replaceChild(newBtn, this.nextBtn);
             this.nextBtn = newBtn;
-
-            this.nextBtn.addEventListener('click', () => {
-                if (this.audioManager.isPlaying) {
-                    sessionStorage.setItem('bloodbath_music_active', 'true');
-                } else {
-                    sessionStorage.setItem('bloodbath_music_active', 'false');
-                }
-                window.location.reload();
-            });
+            this.nextBtn.addEventListener('click', () => this.handleReload());
         }
     }
 
-    // NEW: Call this when loading screen hides
+    // Helper to save audio state and reload
+    handleReload() {
+        if (this.audioManager.isPlaying) {
+            sessionStorage.setItem('bloodbath_music_active', 'true');
+        } else {
+            sessionStorage.setItem('bloodbath_music_active', 'false');
+        }
+        window.location.reload();
+    }
+
     startTimer() {
         this.startTime = Date.now();
     }
 
-    // NEW: Calculates duration for just this level
     getLevelTime() {
         if (!this.startTime) return "00m 00s";
-
         const ms = Date.now() - this.startTime;
         const minutes = Math.floor(ms / 60000);
         const seconds = ((ms % 60000) / 1000).toFixed(0);
@@ -102,8 +118,8 @@ export class LevelManager {
                 const weapon = entities.weapon;
                 const flash = weapon ? weapon.flashLight : null;
                 const startRotY = this.engine.camera.rotation.y;
+
                 const cullingState = new Map();
-                
                 this.engine.scene.traverse(obj => {
                     if (obj.isMesh) {
                         cullingState.set(obj, obj.frustumCulled);
@@ -165,11 +181,12 @@ export class LevelManager {
 
         this.engine.controls.unlock();
         document.body.style.cursor = 'default';
+        const crosshair = document.getElementById('crosshair');
+        if (crosshair) crosshair.style.display = 'none';
         
         if (this.ui) {
             this.ui.style.display = 'flex';
             
-            // Use IDs from UIConfig/Initializer
             const elLevel = document.getElementById('score-level-num');
             if (elLevel) elLevel.innerText = this.currentLevel;
 
@@ -179,14 +196,12 @@ export class LevelManager {
             const elAcc = document.getElementById('score-acc');
             if (elAcc) elAcc.innerText = state.getAccuracy();
 
-            // FIX: Use getLevelTime() for the Level Cleared screen
             const elTime = document.getElementById('score-time');
             if (elTime) elTime.innerText = this.getLevelTime();
         }
 
         if (this.nextBtn) {
             this.nextBtn.disabled = true;
-            this.nextBtn.style.opacity = "0.5";
             this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_UPLINKING;
 
             const payload = { player_data: state.data };
@@ -201,21 +216,30 @@ export class LevelManager {
                     const nextLvl = this.currentLevel + 1;
                     sessionStorage.setItem('bloodbath_level_cache', nextLvl);
 
-                    this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ENTER_PREFIX + nextLvl;
+                    this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_CONTINUE_TECH;
                     this.nextBtn.disabled = false;
                     this.nextBtn.style.opacity = "1.0";
+                    
+                    const newBtn = this.nextBtn.cloneNode(true);
+                    this.nextBtn.parentNode.replaceChild(newBtn, this.nextBtn);
+                    this.nextBtn = newBtn;
+                    
+                    this.nextBtn.addEventListener('click', () => {
+                        this.ui.style.display = 'none'; 
+                        this.techTree.show();
+                        document.body.style.cursor = 'default';
+                    });
+                    
                 } else {
                     console.error("Server Error:", data);
                     this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ERROR_SERVER;
                     this.nextBtn.disabled = false;
-                    this.nextBtn.style.opacity = "1.0";
                 }
             })
             .catch(err => {
                 console.error("Level Sync Failed", err);
                 this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_ERROR_NET;
                 this.nextBtn.disabled = false;
-                this.nextBtn.style.opacity = "1.0";
             });
         }
     }
