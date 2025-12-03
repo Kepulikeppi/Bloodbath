@@ -24,7 +24,6 @@ export class DungeonGenerator {
             wiggle: Config.DIRECTION_WIGGLE || 80,
             corridorWidth: Config.CORRIDOR_WIDTH || 4,
             
-            // Height Config
             wallHeight: Config.DEFAULT_WALL_HEIGHT,
             minCeil: Config.ROOM_HEIGHT_MIN,
             maxCeil: Config.ROOM_HEIGHT_MAX
@@ -32,14 +31,14 @@ export class DungeonGenerator {
     }
 
     generate() {
-        console.log(`[DungeonGen] Generating ${this.width}x${this.height} map...`);
+        console.log(`[DungeonGen] Generating ${this.width}x${this.height} map (FLAT)...`);
         
-        // 1. Initialize Grid (Walls are solid up to max height)
+        // 1. Initialize Grid (Solid Wall)
         this.map = [];
         for (let y = 0; y < this.height; y++) {
             const row = [];
             for (let x = 0; x < this.width; x++) {
-                row.push({ type: 1, height: this.params.wallHeight, ceiling: this.params.wallHeight });
+                row.push({ type: 1, height: 0, ceiling: this.params.wallHeight });
             }
             this.map.push(row);
         }
@@ -47,31 +46,27 @@ export class DungeonGenerator {
         this.rooms = [];
         this.doorways = [];
 
-        // 2. Generate Logic
         this.generateMainPath();
         this.generateBranches();
         this.assignStartEnd();
         
-        // 3. Carve Rooms 
         this.rooms.forEach(room => {
             RoomArchitect.carve(this.map, room, this.rng);
         });
 
-        // 4. Center
         this.normalizeCoordinates();
 
         console.log(`[DungeonGen] Complete: ${this.rooms.length} rooms`);
         return this.map;
     }
 
-    // ... [generateMainPath, generateBranches, addBranch, tryPlaceRoom logic mostly same, added ceiling prop] ...
+    // --- GENERATION LOGIC ---
 
     generateMainPath() {
         const p = this.params;
         const startX = this.rng.range(10, Math.floor(this.width * 0.15));
         const startY = this.rng.range(Math.floor(this.height * 0.3), Math.floor(this.height * 0.7));
         
-        // Random Ceiling for start room
         const startCeil = this.rng.range(p.minCeil, p.maxCeil);
 
         const firstRoom = { 
@@ -79,8 +74,8 @@ export class DungeonGenerator {
             w: this.rng.range(p.roomMinSize, p.roomMaxSize), 
             h: this.rng.range(p.roomMinSize, p.roomMaxSize), 
             type: 'main', depth: 0,
-            baseHeight: 0,
-            ceilingHeight: startCeil, // NEW
+            baseHeight: 0, // Always 0
+            ceilingHeight: startCeil, 
             roomShape: RoomTypes.NORMAL 
         };
         this.finalizeRoom(firstRoom);
@@ -102,7 +97,7 @@ export class DungeonGenerator {
             
             let placed = false;
             for (const dir of directions) {
-                const newRoom = this.tryPlaceRoom(currentRoom, dir, 'main', 0);
+                const newRoom = this.tryPlaceRoom(currentRoom, dir, 'main');
                 if (newRoom) {
                     newRoom.depth = currentRoom.depth + 1;
                     this.rooms.push(newRoom);
@@ -124,21 +119,18 @@ export class DungeonGenerator {
         const p = this.params;
         for (let i = 1; i < this.mainPath.length - 1; i++) {
             if (this.rng.next() * 100 < p.branchChance) {
-                const heightShift = (this.rng.range(0, 2) - 1) * 2; 
-                const startHeight = this.mainPath[i].baseHeight + heightShift;
-                this.addBranch(this.mainPath[i], 0, p.maxBranchDepth, startHeight);
+                this.addBranch(this.mainPath[i], 0, p.maxBranchDepth);
             }
         }
     }
 
-    addBranch(sourceRoom, depth, maxDepth, currentHeight) {
+    addBranch(sourceRoom, depth, maxDepth) {
         if (depth >= maxDepth) return 0;
         let roomsAdded = 0;
         const directions = this.rng.shuffle(['N', 'S', 'E', 'W']);
         
         for (const dir of directions) {
-            const nextHeight = currentHeight; 
-            const branchRoom = this.tryPlaceRoom(sourceRoom, dir, 'branch', nextHeight);
+            const branchRoom = this.tryPlaceRoom(sourceRoom, dir, 'branch');
             if (branchRoom) {
                 branchRoom.depth = depth;
                 this.rooms.push(branchRoom);
@@ -146,7 +138,7 @@ export class DungeonGenerator {
                 this.connectRooms(sourceRoom, branchRoom, dir);
                 roomsAdded++;
                 if (this.rng.next() < 0.4 && depth + 1 < maxDepth) {
-                    roomsAdded += this.addBranch(branchRoom, depth + 1, maxDepth, nextHeight);
+                    roomsAdded += this.addBranch(branchRoom, depth + 1, maxDepth);
                 }
                 break;
             }
@@ -154,7 +146,7 @@ export class DungeonGenerator {
         return roomsAdded;
     }
 
-    tryPlaceRoom(sourceRoom, direction, type, height) {
+    tryPlaceRoom(sourceRoom, direction, type) {
         const p = this.params;
         for (let shrink = 0; shrink < 5; shrink++) {
             const sizeReduction = shrink * 3;
@@ -174,15 +166,14 @@ export class DungeonGenerator {
                     case 'W': x = exit.x - w - gap; y = exit.y - Math.floor(h / 2) + offset; break;
                 }
                 
-                // Random Ceiling
                 const ceilH = this.rng.range(p.minCeil, p.maxCeil);
                 
                 const newRoom = { 
                     x: Math.floor(x), y: Math.floor(y), w, h, type, 
                     connectionDir: direction,
-                    baseHeight: height,
-                    ceilingHeight: ceilH, // NEW
-                    roomShape: (type === 'branch') ? this.pickRandomShape() : RoomTypes.NORMAL
+                    baseHeight: 0,      // FLAT
+                    ceilingHeight: ceilH,
+                    roomShape: RoomTypes.NORMAL // Always Normal
                 };
                 this.finalizeRoom(newRoom);
                 
@@ -192,14 +183,57 @@ export class DungeonGenerator {
         return null;
     }
 
-    pickRandomShape() {
-        const r = this.rng.next();
-        if (r < 0.5) return RoomTypes.NORMAL;
-        if (r < 0.7) return RoomTypes.PIT;
-        if (r < 0.9) return RoomTypes.PODIUM;
-        return RoomTypes.BRIDGE;
+    // --- CORRIDORS (FLATTENED) ---
+
+    connectRooms(room1, room2, direction) {
+        const exit1 = this.getExitPoint(room1, direction);
+        const exit2 = this.getExitPoint(room2, this.getOpposite(direction));
+        
+        // Doorway logic
+        const isDoorway = this.rng.next() < 0.20;
+        let width;
+
+        if (isDoorway) {
+            width = this.rng.range(2, 3);
+            this.doorways.push({ x: Math.floor((exit1.x + exit2.x) / 2), y: Math.floor((exit1.y + exit2.y) / 2) });
+        } else {
+            const roll = this.rng.next();
+            if (roll < 0.33) width = this.rng.range(3, 4);
+            else if (roll < 0.66) width = this.rng.range(5, 6);
+            else width = this.rng.range(7, 9);
+        }
+
+        // Corridors always have a lower ceiling to make rooms feel bigger
+        const corrCeil = 3.5; 
+        this.carveCorridor(exit1.x, exit1.y, exit2.x, exit2.y, width, corrCeil);
     }
 
+    carveCorridor(x1, y1, x2, y2, width, ceilH) {
+        x1 = Math.floor(x1); y1 = Math.floor(y1);
+        x2 = Math.floor(x2); y2 = Math.floor(y2);
+        const halfW = Math.floor(width / 2);
+        
+        const startX = Math.min(x1, x2), endX = Math.max(x1, x2);
+        const startY = Math.min(y1, y2), endY = Math.max(y1, y2);
+
+        const setBlock = (bx, by) => {
+            for (let wy = -halfW; wy <= halfW; wy++) {
+                for (let wx = -halfW; wx <= halfW; wx++) {
+                    // Height is always 0
+                    this.safeSet(bx + wx, by + wy, 0, 0, ceilH);
+                }
+            }
+        };
+
+        // Horizontal Leg
+        for (let x = startX; x <= endX; x++) setBlock(x, y1);
+        
+        // Vertical Leg
+        for (let y = startY; y <= endY; y++) setBlock(x2, y);
+    }
+
+    // --- UTILITIES (Keep same as before) ---
+    
     finalizeRoom(room) {
         room.center = { 
             x: Math.floor(room.x + room.w / 2), 
@@ -228,107 +262,20 @@ export class DungeonGenerator {
         }
     }
 
-    connectRooms(room1, room2, direction) {
-        const exit1 = this.getExitPoint(room1, direction);
-        const exit2 = this.getExitPoint(room2, this.getOpposite(direction));
-        
-        const isLevel = (room1.baseHeight === room2.baseHeight);
-        const isDoorway = isLevel && this.rng.next() < 0.20;
-        let width;
-
-        if (isDoorway) {
-            width = this.rng.range(2, 3);
-            this.doorways.push({ x: Math.floor((exit1.x + exit2.x) / 2), y: Math.floor((exit1.y + exit2.y) / 2) });
-        } else {
-            const roll = this.rng.next();
-            if (roll < 0.33) width = this.rng.range(3, 4);
-            else if (roll < 0.66) width = this.rng.range(5, 6);
-            else width = this.rng.range(7, 9);
-        }
-
-        // NEW: Determine Corridor Ceiling
-        // Usually corridors should be lower (3.5) or match the lowest room?
-        // Let's define a standard corridor height of 3.5 to feel "tight" between large rooms.
-        const corrCeil = 3.5; 
-
-        this.carveCorridor(
-            exit1.x, exit1.y, exit2.x, exit2.y, width, 
-            room1.baseHeight, room2.baseHeight,
-            corrCeil
-        );
-    }
-
-    carveCorridor(x1, y1, x2, y2, width, h1, h2, ceilH) {
-        x1 = Math.floor(x1); y1 = Math.floor(y1);
-        x2 = Math.floor(x2); y2 = Math.floor(y2);
-        const halfW = Math.floor(width / 2);
-        
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        const xDir = dx !== 0 ? Math.sign(dx) : 0;
-        const yDir = dy !== 0 ? Math.sign(dy) : 0;
-        
-        const totalSteps = Math.abs(dx) + Math.abs(dy);
-        let currentStep = 0;
-
-        const setBlock = (bx, by, stepIndex) => {
-            let progress = 0;
-            if (totalSteps > 0) progress = stepIndex / totalSteps;
-            
-            let rawH = h1 + (h2 - h1) * progress;
-            const maxSlopeHeight = h1 + (stepIndex * 0.5 * Math.sign(h2 - h1));
-            
-            if (h2 > h1 && rawH > maxSlopeHeight) rawH = maxSlopeHeight;
-            const snappedH = Math.round(rawH * 2) / 2;
-
-            // Ensure ceiling is always above floor + min headroom
-            // If snappedH is 4, and ceilH is 3.5, we have a problem.
-            // Corridor ceiling should probably also ramp? 
-            // For now, we simply push the ceiling up if the floor rises.
-            const actualCeil = Math.max(ceilH, snappedH + 3.0);
-
-            for (let wy = -halfW; wy <= halfW; wy++) {
-                for (let wx = -halfW; wx <= halfW; wx++) {
-                    this.safeSet(bx + wx, by + wy, 0, snappedH, actualCeil);
-                }
-            }
-        };
-
-        let cx = x1;
-        let cy = y1;
-        
-        for (let i = 0; i < Math.abs(dx); i++) {
-            cx += xDir;
-            currentStep++;
-            setBlock(cx, cy, currentStep);
-        }
-
-        for (let i = 0; i < Math.abs(dy); i++) {
-            cy += yDir;
-            currentStep++;
-            setBlock(cx, cy, currentStep);
-        }
-    }
-
     safeSet(x, y, type, height, ceiling) {
         x = Math.floor(x); y = Math.floor(y);
         if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
             this.map[y][x].type = type;
             this.map[y][x].height = height;
-            // Fallback if not provided (e.g. old code calling safeSet)
             this.map[y][x].ceiling = (ceiling !== undefined) ? ceiling : this.params.wallHeight;
         }
     }
-
-    // --- UTILITIES ---
-    // (Rest of file: normalizeCoordinates, getExitPoint, getLootSpots, etc. unchanged)
-    // Just ensure normalizeCoordinates copies the .ceiling property too.
 
     normalizeCoordinates() {
         let minX = this.width, maxX = 0, minY = this.height, maxY = 0;
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
-                if (this.map[y][x].type === 0 || this.map[y][x].type === 2) { 
+                if (this.map[y][x].type === 0) { 
                     if (x < minX) minX = x; if (x > maxX) maxX = x;
                     if (y < minY) minY = y; if (y > maxY) maxY = y;
                 }
@@ -344,7 +291,7 @@ export class DungeonGenerator {
         for (let y = 0; y < this.height; y++) {
             const row = [];
             for (let x = 0; x < this.width; x++) {
-                row.push({ type: 1, height: this.params.wallHeight, ceiling: this.params.wallHeight });
+                row.push({ type: 1, height: 0, ceiling: this.params.wallHeight });
             }
             newMap.push(row);
         }
@@ -354,7 +301,6 @@ export class DungeonGenerator {
                     const newX = x + offsetX;
                     const newY = y + offsetY;
                     if (newX >= 0 && newX < this.width && newY >= 0 && newY < this.height) {
-                        // Copy object with spread including ceiling
                         newMap[newY][newX] = { ...this.map[y][x] };
                     }
                 }
@@ -368,10 +314,7 @@ export class DungeonGenerator {
         });
         this.doorways.forEach(d => { d.x += offsetX; d.y += offsetY; });
     }
-    
-    // (getExitPoint, getOpposite, dirToAngle, angleToDir, assignStartEnd, getLootSpots omitted for brevity as they are unchanged)
-    // But you must keep them in the file!
-    
+
     getExitPoint(room, direction) {
         const jitter = this.rng.range(-2, 2);
         switch (direction) {
@@ -381,7 +324,6 @@ export class DungeonGenerator {
             case 'W': return { x: room.x, y: room.y + Math.floor(room.h / 2) + jitter };
         }
     }
-
     getOpposite(dir) { return { 'N': 'S', 'S': 'N', 'E': 'W', 'W': 'E' }[dir]; }
     dirToAngle(dir) { return { 'N': -90, 'S': 90, 'E': 0, 'W': 180 }[dir]; }
     angleToDir(angle) {
@@ -400,6 +342,7 @@ export class DungeonGenerator {
             this.endRoom = this.rooms[this.rooms.length - 1];
         }
     }
+    pickRandomShape() { return RoomTypes.NORMAL; }
 
     getLootSpots(room, count) {
         const spots = [];

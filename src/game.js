@@ -20,6 +20,7 @@ import { UIInitializer } from './UI/UIInitializer.js';
 import { LootManager } from './Game/LootManager.js';
 import { Pickup } from './Game/Pickup.js';
 import { MessageLog } from './UI/MessageLog.js';
+import { LightManager } from './Game/LightManager.js';
 
 console.log("1. Game Script Loaded");
 
@@ -187,7 +188,7 @@ async function loadLevel() {
                 });
 
                 loadingUI.update(80, UIConfig.LOADING.STEP_SPAWN);
-
+                LightManager.init(engine.scene, 20); 
                 // FIX: Use .length = 0 to clear array while keeping reference, just in case
                 pickups.length = 0;
 
