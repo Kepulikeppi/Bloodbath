@@ -38,16 +38,16 @@ export const WeaponConfig = {
         spread: 0.01,
 
         // Physics
-        recoilKick: 0.02, // Model kickback Z
-        recoilRise: 0.0,  // Model rotate X
-        recoilSnap: 8.0,  // Recovery speed
-        cameraRecoil: 0.015, // Camera pitch up
+        recoilKick: 0.05, 
+        recoilRise: 0.05,
+        recoilSnap: 10.0,  
+        cameraRecoil: 0.02, 
 
         // Visuals
         bodyColor: 0x111111,
         slideColor: 0x1a1a1a,
         flashColor: 0xffaa00,
-        position: { x: 0.35, y: -0.3, z: -0.2 }
+        position: { x: 0.35, y: -0.3, z: -0.4 }
     },
 
     JOLT_DIPLOMAT: {
@@ -57,22 +57,23 @@ export const WeaponConfig = {
         slot: 2,
         ammoType: "44mag",
         baseMagSize: 6,
-        reloadTime: 3.5,
+        reloadTime: 6.5, // FIXED: 6.5 seconds
         
         damage: 45,
         fireRate: 0.6,
         isAuto: false,
         shotCount: 1,
-        spread: 0.005,
+        spread: 0.002, // Accurate
 
-        recoilKick: 0.15, 
-        recoilRise: 0.1, 
-        recoilSnap: 4.0,
-        cameraRecoil: 0.06, 
+        // Heavy Recoil
+        recoilKick: 0.3, // Big model kick back
+        recoilRise: 0.4, // Big model kick up
+        recoilSnap: 3.0, // Slow recovery
+        cameraRecoil: 0.15, // Huge instant camera jump
 
-        bodyColor: 0x222222,
-        gripColor: 0x111111,
+        bodyColor: 0x444444, // Chrome/Steel look
+        gripColor: 0x3e2723, // Wood grip
         flashColor: 0xffdd44,
-        position: { x: 0.35, y: -0.3, z: -0.2 }
+        position: { x: 0.4, y: -0.35, z: -0.3 }
     }
 };

@@ -12,16 +12,11 @@ export class RangedWeapon extends Weapon {
         this.isReloading = false;
         this.triggerHeld = false; 
         this.fireTimer = 0;       
-
-        // Camera Recoil Physics State
-        this.currentRecoilPitch = 0;
-        this.recoilForce = 0;
         
-        // Default Muzzle (Subclasses should overwrite this in buildVisuals)
-        this.muzzleOffset = new THREE.Vector3(0, 0, -0.5);
+        // Muzzle position placeholder
+        this.muzzleOffset = new THREE.Vector3(0, 0.1, -0.5);
     }
 
-    // --- INPUT HANDLING ---
     pressTrigger() {
         this.triggerHeld = true;
         if (this.fireTimer <= 0 && !this.isReloading) {
@@ -33,18 +28,16 @@ export class RangedWeapon extends Weapon {
         this.triggerHeld = false;
     }
 
-    // --- FIRE LOGIC ---
     tryFire() {
         const weaponId = this.config.id;
         const wState = state.getWeaponState(weaponId);
         const reserveCount = state.data.ammo[this.config.ammoType];
 
-        // 1. Check Ammo
+        // 1. Ammo Check
         if (wState.magCurrent <= 0) {
             if (reserveCount > 0) {
                 this.reload();
             } else {
-                // Click sound (debounced)
                 if (!this.clickedEmpty) {
                     if (this.audioManager) this.audioManager.playSFX(`${weaponId}_EMPTY`);
                     this.clickedEmpty = true;
@@ -54,28 +47,12 @@ export class RangedWeapon extends Weapon {
             return false; 
         }
 
-        // 2. Consume Logic
+        // 2. Consume Ammo
         state.consumeAmmo(weaponId);
         this.fireTimer = this.config.fireRate;
         this.recoilTimer = 1.0; 
 
-        // 3. Add Physics Forces
-        if (this.config.cameraRecoil) {
-            this.recoilForce += this.config.cameraRecoil;
-        }
-
-        // 4. Visual Effects (Muzzle Flash)
-        const muzzlePos = this.muzzleOffset.clone();
-        this.mesh.localToWorld(muzzlePos);
-        LightManager.pulse(muzzlePos, this.config.flashColor, 0.05, 20, 5);
-
-        // 5. Audio
-        if (this.audioManager) this.audioManager.playSFX(`${weaponId}_SHOOT`);
-
-        // 6. Trigger Subclass Animation
-        this.animateShoot();
-
-        // 7. Dispatch Hitscan Event
+        // 3. FIRE RAYCAST (Hit Detection First)
         const shots = this.config.shotCount || 1;
         const spread = this.config.spread || 0;
 
@@ -88,11 +65,25 @@ export class RangedWeapon extends Weapon {
                 }
             }));
         }
+
+        // 4. APPLY CAMERA RECOIL (No Recovery)
+        // We simply apply the rotation once. The player must correct it manually.
+        if (this.config.cameraRecoil) {
+            this.camera.rotateX(this.config.cameraRecoil);
+        }
+
+        // 5. Visual Effects & Audio
+        const muzzlePos = this.muzzleOffset.clone();
+        this.mesh.localToWorld(muzzlePos);
+        LightManager.pulse(muzzlePos, this.config.flashColor, 0.05, 20, 5);
+
+        if (this.audioManager) this.audioManager.playSFX(`${weaponId}_SHOOT`);
+
+        this.animateShoot();
         
         return true; 
     }
 
-    // --- RELOAD LOGIC ---
     reload() {
         if (this.isReloading) return;
         
@@ -106,7 +97,6 @@ export class RangedWeapon extends Weapon {
         this.isReloading = true;
         if (this.audioManager) this.audioManager.playSFX(`${wConfig.id}_RELOAD`);
 
-        // Trigger Subclass Animation
         this.animateReload();
 
         setTimeout(() => {
@@ -116,65 +106,38 @@ export class RangedWeapon extends Weapon {
         }, wConfig.reloadTime * 1000);
     }
 
-    // --- UPDATE LOOP (PHYSICS & TIMERS) ---
     update(delta, isMoving, time) {
-        // Fire Rate
+        // Fire Rate Cooldown
         if (this.fireTimer > 0) this.fireTimer -= delta;
 
-        // Auto-fire check
+        // Auto-Fire Logic
         if (this.config.isAuto && this.triggerHeld && this.fireTimer <= 0) {
             this.tryFire();
         }
 
-        // 1. Handle Camera Recoil (Pitch Up/Down)
-        this.updateCameraRecoil(delta);
-
-        // 2. Handle Weapon Model Sway/Bob
         if (!this.isReloading) {
             super.update(delta, isMoving, time);
-            this.updateModelRecoil(delta);
+            
+            // Note: Camera Recoil recovery logic removed.
+
+            // Model Recoil Animation (Visual only)
+            if (this.recoilTimer > 0) {
+                this.recoilTimer -= delta * this.config.recoilSnap;
+                if (this.recoilTimer < 0) this.recoilTimer = 0;
+            }
+            const kickZ = this.recoilTimer * this.config.recoilKick;
+            const kickRot = this.recoilTimer * this.config.recoilRise;
+            this.mesh.position.z = this.basePos.z + kickZ;
+            this.mesh.rotation.x = this.baseRot.x + kickRot;
         } else {
-             // During reload, let subclass handle model pos, or default bob
              this.updateReloadAnim(delta, time);
         }
     }
 
-    updateCameraRecoil(delta) {
-        // Kick Up
-        if (this.recoilForce > 0) {
-            const kick = this.recoilForce * delta * 20.0;
-            this.camera.rotateX(kick); 
-            this.currentRecoilPitch += kick;
-            this.recoilForce -= kick;
-            if (this.recoilForce < 0.0001) this.recoilForce = 0;
-        } 
-        // Recover Down
-        else if (this.currentRecoilPitch > 0) {
-            const recovery = this.currentRecoilPitch * delta * 5.0; 
-            this.camera.rotateX(-recovery); 
-            this.currentRecoilPitch -= recovery;
-            if (this.currentRecoilPitch < 0.0001) this.currentRecoilPitch = 0;
-        }
-    }
-
-    updateModelRecoil(delta) {
-        if (this.recoilTimer > 0) {
-            this.recoilTimer -= delta * this.config.recoilSnap;
-            if (this.recoilTimer < 0) this.recoilTimer = 0;
-        }
-        const kickZ = this.recoilTimer * this.config.recoilKick;
-        const kickRot = this.recoilTimer * this.config.recoilRise;
-        
-        this.mesh.position.z = this.basePos.z + kickZ;
-        this.mesh.rotation.x = this.baseRot.x + kickRot;
-    }
-
-    // --- ABSTRACT METHODS (To be overridden) ---
     animateShoot() {}
     animateReload() {}
     
     updateReloadAnim(delta, time) {
-        // Default generic reload bob if subclass doesn't override
         this.mesh.rotation.x = this.baseRot.x + 0.5 + Math.sin(time * 8) * 0.1;
         this.mesh.position.y = this.basePos.y - 0.2; 
     }
