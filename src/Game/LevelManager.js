@@ -7,15 +7,21 @@ import { DebrisSystem } from './DebrisSystem.js';
 import { state } from './GameState.js'; 
 import { TechTreeUI } from '../UI/TechTreeUI.js';
 import { Minimap } from './Minimap.js';
+import { LightManager } from './LightManager.js';
+import { WeaponFactory } from './Weapons/WeaponFactory.js';
+import { Pickup } from './Pickup.js';
 
 export class LevelManager {
     constructor(engine, loadingUI, audioManager) {
         this.engine = engine;
         this.loadingUI = loadingUI;
         this.audioManager = audioManager;
+        
         this.startTime = null; 
+
         this.ui = document.getElementById('level-screen');
         this.nextBtn = document.getElementById('btn-next-level');
+        
         this.isLevelFinished = false;
         this.currentLevel = 1; 
 
@@ -24,9 +30,8 @@ export class LevelManager {
             fetch('api/save_progress.php', {
                 method: 'POST',
                 body: JSON.stringify(payload)
-            })
-            .then(() => this.handleReload())
-            .catch(() => this.handleReload());
+            }).then(() => this.handleReload())
+              .catch(() => this.handleReload());
         });
 
         if (this.nextBtn) {
@@ -46,7 +51,9 @@ export class LevelManager {
         window.location.reload();
     }
 
-    startTimer() { this.startTime = Date.now(); }
+    startTimer() {
+        this.startTime = Date.now();
+    }
 
     getLevelTime() {
         if (!this.startTime) return "00m 00s";
@@ -57,20 +64,36 @@ export class LevelManager {
         return `${minutes}m ${secStr}s`;
     }
 
-    loadCurrentLevel(onComplete) {
+    // === MAIN LOADING LOGIC ===
+    async loadCurrentLevel(onComplete) {
         let currentSeed = Date.now() + "_" + Math.floor(Math.random() * 1000); 
 
-        fetch('api/get_status.php').then(res => res.json()).then(data => {
+        // 1. SYNC WAIT: We must await the fetch before doing ANYTHING else.
+        try {
+            const res = await fetch('api/get_status.php');
+            const data = await res.json();
+            
             if (data.seed) currentSeed = data.seed;
+            
             if (data.active) {
-                this.currentLevel = data.level;
-                if (data.player_data) state.setData(data.player_data);
+                // Correctly update level before generation starts
+                this.currentLevel = parseInt(data.level); 
+                
+                // Restore player state (Ammo, HP)
+                if (data.player_data) {
+                    console.log("[LevelManager] Restoring player state...");
+                    state.setData(data.player_data);
+                }
             }
-        }).catch(() => console.warn("API Error"));
+        } catch(e) {
+            console.warn("API Error, using defaults", e);
+        }
 
+        // 2. NOW we can update the UI with the correct level number
         this.loadingUI.setTitle(this.currentLevel); 
         this.loadingUI.update(10, UIConfig.LOADING.STEP_GEN);
 
+        // 3. Start Generation Pipeline
         setTimeout(async () => {
             const debrisSystem = new DebrisSystem(this.engine.scene); 
             this.loadingUI.update(30, UIConfig.LOADING.STEP_GEN);
@@ -78,7 +101,8 @@ export class LevelManager {
             const levelScale = 1 + (this.currentLevel * 0.1);
             const mapWidth = Math.floor(Config.MAP_WIDTH * levelScale);
             const mapHeight = Math.floor(Config.MAP_HEIGHT * levelScale);
-            console.log(`[LevelManager] Gen: ${mapWidth}x${mapHeight} (Seed: ${currentSeed})`);
+            
+            console.log(`[LevelManager] Gen: ${mapWidth}x${mapHeight} (Level ${this.currentLevel}, Seed: ${currentSeed})`);
             
             const generator = new DungeonGenerator(currentSeed, mapWidth, mapHeight);
             const mapData = generator.generate();
@@ -98,35 +122,35 @@ export class LevelManager {
 
             this.loadingUI.update(80, UIConfig.LOADING.STEP_SPAWN);
 
-            // Spawner logic
+            LightManager.init(this.engine.scene, 20);
+            
             const entities = Spawner.spawnEntities(this.engine, mapData, generator, builder, this.audioManager);
             
-            // Weapon Factory
-            // Note: We need WeaponFactory import here if we use it, but game.js passes it via imports?
-            // No, game.js calls this. We need to import WeaponFactory in this file if we use it, OR 
-            // rely on Spawner (which we do). But Spawner just creates entities.
-            // game.js handles the WeaponFactory active logic. Spawner returns a default?
-            // Actually Spawner returns a default. game.js overwrites it.
-            
-            // Loot
+            // Create Active Weapon based on loaded state
+            const activeId = state.data.activeWeaponId || 'PISTOL_9MM';
+            const weapon = WeaponFactory.create(activeId, this.engine.camera, this.audioManager);
+            entities.weapon = weapon;
+
             const pickups = entities.pickups || [];
             const minimap = new Minimap(mapData);
             
             this.loadingUI.update(90, UIConfig.LOADING.STEP_SHADER);
-            this.performWarmup(entities.weapon, debrisSystem);
+
+            this.performWarmup(weapon, debrisSystem);
+
             this.loadingUI.complete();
             
             if (onComplete) {
                 onComplete({
                     player: entities.player,
-                    weapon: entities.weapon,
+                    weapon: weapon,
                     enemies: entities.enemies,
                     exitObject: entities.exit,
                     pickups: pickups,
-                    minimapData: mapData, // Return data for global scope
                     minimap: minimap,
                     debrisSystem: debrisSystem,
-                    levelMeshes: levelMeshes
+                    levelMeshes: levelMeshes,
+                    minimapData: mapData // Important for game.js loop
                 });
             }
         }, 100);
@@ -135,8 +159,8 @@ export class LevelManager {
     performWarmup(weapon, debrisSystem) {
         const startRotY = this.engine.camera.rotation.y;
         const flash = weapon ? weapon.flashLight : null;
-        const cullingState = new Map();
         
+        const cullingState = new Map();
         this.engine.scene.traverse(obj => {
             if (obj.isMesh) {
                 cullingState.set(obj, obj.frustumCulled);
@@ -169,10 +193,10 @@ export class LevelManager {
         });
         
         if (debrisSystem) debrisSystem.warmup();
+        
         this.engine.renderer.render(this.engine.scene, this.engine.camera);
     }
 
-    // checkExit and finishLevel logic here...
     checkExit(player, exitObject) {
         if (this.isLevelFinished || !exitObject || !player) return;
         const dx = this.engine.camera.position.x - exitObject.position.x;
@@ -185,6 +209,7 @@ export class LevelManager {
     finishLevel() {
         if (this.isLevelFinished) return;
         this.isLevelFinished = true;
+
         this.engine.controls.unlock();
         document.body.style.cursor = 'default';
         const crosshair = document.getElementById('crosshair');
@@ -192,12 +217,16 @@ export class LevelManager {
         
         if (this.ui) {
             this.ui.style.display = 'flex';
+            
             const elLevel = document.getElementById('score-level-num');
             if (elLevel) elLevel.innerText = this.currentLevel;
+
             const elKills = document.getElementById('score-kills');
             if (elKills) elKills.innerText = state.data.runStats.kills;
+
             const elAcc = document.getElementById('score-acc');
             if (elAcc) elAcc.innerText = state.getAccuracy();
+
             const elTime = document.getElementById('score-time');
             if (elTime) elTime.innerText = this.getLevelTime();
         }
@@ -205,6 +234,7 @@ export class LevelManager {
         if (this.nextBtn) {
             this.nextBtn.disabled = true;
             this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_UPLINKING;
+
             const payload = { player_data: state.data };
 
             fetch('api/level_complete.php', {
@@ -216,12 +246,15 @@ export class LevelManager {
                 if (data.status === 'ok') {
                     const nextLvl = this.currentLevel + 1;
                     sessionStorage.setItem('bloodbath_level_cache', nextLvl);
+
                     this.nextBtn.innerText = UIConfig.LEVEL_END.BTN_CONTINUE_TECH;
                     this.nextBtn.disabled = false;
                     this.nextBtn.style.opacity = "1.0";
+                    
                     const newBtn = this.nextBtn.cloneNode(true);
                     this.nextBtn.parentNode.replaceChild(newBtn, this.nextBtn);
                     this.nextBtn = newBtn;
+                    
                     this.nextBtn.addEventListener('click', () => {
                         this.ui.style.display = 'none'; 
                         this.techTree.show();
