@@ -2,19 +2,13 @@ import * as THREE from 'https://esm.sh/three@0.160.0';
 import { LootConfig, LootTypes } from '../LootConfig.js';
 import { state } from './GameState.js';
 
-// === STATIC RESOURCES ===
-// These exist once for the entire game session.
 const GeometryCache = {};
 const MaterialCache = {};
 
-// === THE LIGHT RING BUFFER ===
-// We allocate these ONCE. We never add/remove lights from the scene again.
-// This guarantees the Shader never recompiles during gameplay.
 const MAX_LIGHTS = 32;
 const LightPool = [];
 let LightIndex = 0;
 let PoolInitialized = false;
-const _direction = new THREE.Vector3();// Reusable vector for calculations (avoids garbage collection)
 
 export class Pickup {
     constructor(scene, type, position) {
@@ -23,12 +17,14 @@ export class Pickup {
         this.config = LootConfig[type] || LootConfig[LootTypes.SCRAP]; 
         this.isActive = true;
         
-        // 1. INITIALIZE POOL (Run once per game load)
-        if (!PoolInitialized) {
-            this.initLightPool(scene);
-        }
+        // Settings
+        this.MAGNET_RADIUS = 4.0; 
+        // FIX: Increased radius to cover vertical distance (Eye Height 1.7m)
+        this.COLLECT_RADIUS = 2.0; 
+        this.MAGNET_SPEED = 8.0; 
 
-        // 2. GEOMETRY & MATERIAL (Cached)
+        if (!PoolInitialized) this.initLightPool(scene);
+
         const shapeKey = this.config.shape;
         if (!GeometryCache[shapeKey]) GeometryCache[shapeKey] = this.createGeometry(shapeKey);
         
@@ -43,28 +39,20 @@ export class Pickup {
             });
         }
 
-        // 3. MESH
         this.mesh = new THREE.Mesh(GeometryCache[shapeKey], MaterialCache[matKey]);
         this.mesh.position.copy(position);
         this.mesh.position.y += 0.5; 
         this.mesh.scale.setScalar(this.config.scale);
         this.scene.add(this.mesh);
         
-        // 4. ASSIGN LIGHT (Ring Buffer Strategy)
         this.light = null;
         if (this.config.glow) {
-            // Steal the next available light in the ring
             const light = LightPool[LightIndex];
-            
-            // Move it here and turn it on
             light.position.copy(this.mesh.position);
             light.position.y += 0.2;
             light.color.setHex(this.config.color);
             light.intensity = 1.0;
-            
-            this.light = light; // Remember which light we hold
-            
-            // Advance index (Loop back to 0 if we hit max)
+            this.light = light; 
             LightIndex = (LightIndex + 1) % MAX_LIGHTS;
         }
 
@@ -72,17 +60,14 @@ export class Pickup {
     }
 
     initLightPool(scene) {
-        // Create the fixed budget of lights. 
-        // The GPU compiles the shader for this exact number of lights.
         for (let i = 0; i < MAX_LIGHTS; i++) {
-            const light = new THREE.PointLight(0xffffff, 0, 3); // Start intensity 0
+            const light = new THREE.PointLight(0xffffff, 0, 3); 
             light.castShadow = false;
-            light.position.set(0, -999, 0); // Hide in void
+            light.position.set(0, -999, 0); 
             scene.add(light);
             LightPool.push(light);
         }
         PoolInitialized = true;
-        console.log(`[Pickup] Initialized Light Pool (${MAX_LIGHTS} lights)`);
     }
 
     createGeometry(shape) {
@@ -96,46 +81,52 @@ export class Pickup {
         }
     }
 
-    update(playerPos, deltaTime) {
-        if (!this.mesh || this.collected) return false;
+    update(delta, playerPos) {
+        if (!this.isActive) return false;
+
+        this.time += delta;
+        this.mesh.rotation.y += delta;
         
-        // Horizontal distance only (ignore height difference)
-        const dx = playerPos.x - this.mesh.position.x;
-        const dz = playerPos.z - this.mesh.position.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        
-        // Collected - close enough horizontally
-        if (dist < 0.5) {
+        const dist = this.mesh.position.distanceTo(playerPos);
+
+        // Magnet Logic
+        if (dist < this.MAGNET_RADIUS) {
+            const direction = new THREE.Vector3().subVectors(playerPos, this.mesh.position).normalize();
+            direction.y -= 0.2; 
+            
+            const speed = this.MAGNET_SPEED + (this.MAGNET_RADIUS - dist); 
+            this.mesh.position.addScaledVector(direction, speed * delta);
+            
+            if (this.light) {
+                this.light.position.copy(this.mesh.position);
+            }
+        } else {
+            this.mesh.position.y = 0.5 + Math.sin(this.time * 2.5) * 0.15;
+             if (this.light) {
+                this.light.position.y = this.mesh.position.y + 0.2;
+            }
+        }
+
+        // Collection Check
+        if (dist < this.COLLECT_RADIUS) {
             this.collect();
-            return true;
+            return true; 
         }
-        
-        // Magnet radius - suck toward player
-        if (dist < 1.5) {
-            _direction.set(dx, 0, dz).normalize();
-            const speed = (2.5 - dist) * 8 * deltaTime;
-            this.mesh.position.addScaledVector(_direction, speed);
-        }
-        
         return false;
     }
 
     collect() {
         this.isActive = false;
         
-        // 1. RELEASE LIGHT
-        // We just turn it off. It stays in the pool, ready for the next spawn.
         if (this.light) {
             this.light.intensity = 0; 
             this.light.position.set(0, -999, 0);
             this.light = null;
         }
 
-        // 2. HIDE MESH (Soft remove)
         this.mesh.visible = false;
         this.scene.remove(this.mesh);
         
-        // 3. LOGIC
         const amount = this.config.value;
         const currentType = this.type;
         

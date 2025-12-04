@@ -1,7 +1,7 @@
-import { WeaponBlok17 } from './Weapons/WeaponBlok17.js';
-import { WeaponJoltDiplomat } from './Weapons/WeaponJoltDiplomat.js'; // FIXED
-import { MeleeWeapon } from './Weapons/MeleeWeapon.js'; 
-import { WeaponConfig } from '../WeaponConfig.js';
+import { WeaponBlok17 } from './WeaponBlok17.js'; 
+import { WeaponJoltDiplomat } from './WeaponJoltDiplomat.js';
+import { MeleeWeapon } from './MeleeWeapon.js'; 
+import { WeaponConfig } from '../../WeaponConfig.js';
 
 export class WeaponFactory {
     static create(weaponId, camera, audioManager) {
