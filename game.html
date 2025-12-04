@@ -23,7 +23,7 @@
         <div id="loading-bar-container">
             <div id="loading-bar"></div>
         </div>
-        <p id="loading-text"></p> <!-- Empty, filled by JS -->
+        <p id="loading-text"></p>
     </div>
 
     <script>
@@ -50,13 +50,11 @@
     <!-- CROSSHAIR -->
     <div id="crosshair"></div>
     
-    <!-- CONTROLS OVERLAY (Filled by JS) -->
+    <!-- CONTROLS OVERLAY -->
     <div id="controls-overlay"></div>
     
     <!-- HUD LAYER -->
     <div id="hud-layer">
-        
-        <!-- TOP LEFT: Resources & XP -->
         <div id="hud-resources">
             <div class="res-row"><span id="lbl-xp"></span> <span id="val-xp">0</span></div>
             <div class="res-row">
@@ -69,16 +67,13 @@
             </div>
         </div>
 
-        <!-- MESSAGE LOG (Centered) -->
         <div id="message-log"></div>
 
-        <!-- BOTTOM LEFT: Vitals -->
         <div id="hud-vitals">
             <div class="vital-row"><span id="lbl-hp"></span> <span id="val-hp" class="big-text">100</span></div>
             <div class="vital-row"><span id="lbl-armor"></span> <span id="val-armor">0%</span></div>
         </div>
 
-        <!-- BOTTOM RIGHT: Weapon & Ammo -->
         <div id="hud-weapon">
             <div class="weapon-slots">
                 <div class="slot" id="slot-1">1</div>
@@ -91,6 +86,8 @@
             
             <div class="ammo-display">
                 <span id="val-weapon-name">9MM PISTOL</span>
+                <!-- NEW: Caliber Display -->
+                <span id="val-weapon-caliber">9 MM</span>
                 <span id="val-ammo" class="big-text">50</span>
             </div>
         </div>
@@ -105,13 +102,10 @@
     <div id="pause-menu" style="display: none;">
         <h1 id="pause-title"></h1>
         <p id="pause-sub"></p>
-        
         <div class="menu-buttons">
             <button id="btn-resume"></button>
             <button id="btn-quit"></button>
         </div>
-
-        <!-- Music Player -->
         <div id="music-player">
             <canvas id="viz-canvas" width="400" height="40"></canvas>
             <div class="track-info">
@@ -136,12 +130,10 @@
     <!-- 2. GAME OVER MODAL -->
     <div id="game-over-screen">
         <h1 id="go-title"></h1>
-        
         <div class="stat-row"><span id="lbl-go-level"></span><span class="stat-val" id="d-level">1</span></div>
         <div class="stat-row"><span id="lbl-go-kills"></span><span class="stat-val" id="d-kills">0</span></div>
         <div class="stat-row"><span id="lbl-go-acc"></span><span class="stat-val" id="d-acc">0%</span></div>
         <div class="stat-row"><span id="lbl-go-time"></span><span class="stat-val" id="d-time">0m 0s</span></div>
-
         <div class="death-buttons">
             <button id="btn-restart"></button>
             <button id="btn-menu"></button>
@@ -150,7 +142,6 @@
 
     <!-- LEVEL COMPLETE SCREEN -->
     <div id="level-screen" style="display: none;">
-        <!-- "LEVEL 1 CLEARED" constructed by: "LEVEL " + span + " CLEARED" -->
         <h1>LEVEL <span id="score-level-num"></span><span id="lbl-lc-cleared"></span></h1>
         <div class="stats-box">
             <p><span id="lbl-lc-kills"></span> <span id="score-kills">0</span></p>
@@ -159,21 +150,17 @@
         </div>
         <button id="btn-next-level"></button>
     </div>
-    
-       <!-- TECH TREE SCREEN -->
+
+    <!-- TECH TREE SCREEN -->
     <div id="techtree-overlay" style="display: none;">
         <div class="tech-header">
             <h1 id="tt-title"></h1>
             <div class="tech-resources">
-                <span id="lbl-tt-xp">XP:</span> <span id="tech-xp-val">0</span> | 
-                <span id="lbl-tt-scrap">SCRAP:</span> <span id="tech-scrap-val">0</span>
+                <span id="lbl-tt-xp"></span> <span id="tech-xp-val">0</span> | 
+                <span id="lbl-tt-scrap"></span> <span id="tech-scrap-val">0</span>
             </div>
         </div>
-
-        <div id="tech-grid">
-            <!-- Nodes inserted by JS -->
-        </div>
-
+        <div id="tech-grid"></div>
         <div class="tech-footer">
             <div id="tech-desc-box">
                 <h3 id="tech-name-display"></h3>
@@ -181,8 +168,8 @@
             </div>
             <button id="btn-launch-next"></button>
         </div>
-    </div>    
-
+    </div>
+    
     <!-- Load Game Logic -->
     <script type="module" src="./src/game.js"></script>
 </body>

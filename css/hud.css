@@ -87,6 +87,18 @@
     padding: 1vw 1.5vw; text-align: right; min-width: 10vw;
 }
 #val-weapon-name { display: block; font-size: 1vw; opacity: 0.8; margin-bottom: 0.4vw; }
+
+#val-weapon-caliber {
+    display: block;
+    font-size: 0.8vw;
+    color: #aaa; /* Dimmer text */
+    margin-bottom: 0.5vw;
+    text-transform: uppercase;
+    font-style: italic;
+}
+
+#val-ammo.big-text { font-size: 2.2vw; line-height: 1; }
+
 #val-ammo.big-text { font-size: 2.2vw; }
 
 /* === CONTROLS OVERLAY === */

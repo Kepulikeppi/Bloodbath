@@ -9,6 +9,7 @@ export const WeaponConfig = {
     MELEE_KNIFE: {
         id: 'MELEE_KNIFE',
         name: "Combat Knife",
+        caliber: "Steel", // Placeholder
         type: "MELEE",
         slot: 1,
         
@@ -24,7 +25,8 @@ export const WeaponConfig = {
     // --- PISTOLS ---
     PISTOL_9MM: {
         id: 'PISTOL_9MM',
-        name: "Blok-17",
+        name: "Block 17",
+        caliber: "9 mm",
         type: "RANGED",
         slot: 2,
         ammoType: "9mm",
@@ -38,10 +40,10 @@ export const WeaponConfig = {
         spread: 0.01,
 
         // Physics
-        recoilKick: 0.05, 
-        recoilRise: 0.05,
-        recoilSnap: 10.0,  
-        cameraRecoil: 0.02, 
+        recoilKick: 0.02, 
+        recoilRise: 0.0,  
+        recoilSnap: 8.0,  
+        cameraRecoil: 0.015, 
 
         // Visuals
         bodyColor: 0x111111,
@@ -52,27 +54,28 @@ export const WeaponConfig = {
 
     JOLT_DIPLOMAT: {
         id: 'JOLT_DIPLOMAT',
-        name: "Jolt Diplomat .44",
+        name: "Jolt Diplomat",
+        caliber: ".44 Magnum",
         type: "RANGED",
         slot: 2,
         ammoType: "44mag",
         baseMagSize: 6,
-        reloadTime: 6.5, // FIXED: 6.5 seconds
+        reloadTime: 6.5,
         
         damage: 45,
         fireRate: 0.6,
         isAuto: false,
         shotCount: 1,
-        spread: 0.002, // Accurate
+        spread: 0.002, 
 
         // Heavy Recoil
-        recoilKick: 0.3, // Big model kick back
-        recoilRise: 0.4, // Big model kick up
-        recoilSnap: 3.0, // Slow recovery
-        cameraRecoil: 0.15, // Huge instant camera jump
+        recoilKick: 0.3, 
+        recoilRise: 0.4, 
+        recoilSnap: 3.0, 
+        cameraRecoil: 0.15, 
 
-        bodyColor: 0x444444, // Chrome/Steel look
-        gripColor: 0x3e2723, // Wood grip
+        bodyColor: 0x444444, 
+        gripColor: 0x3e2723, 
         flashColor: 0xffdd44,
         position: { x: 0.4, y: -0.35, z: -0.3 }
     }
