@@ -6,7 +6,6 @@ import { AudioConfig } from './AudioConfig.js';
 import { MusicConfig } from './MusicConfig.js';
 import { UIConfig } from './UIConfig.js';
 import { RangedWeapon } from './Game/Weapons/RangedWeapon.js';
-import { RevolverWeapon } from './Game/Weapons/RevolverWeapon.js';
 import { AudioManager } from './Core/AudioManager.js';
 import { Minimap } from './Game/Minimap.js';
 import { WeaponConfig } from './WeaponConfig.js';
@@ -193,7 +192,7 @@ async function loadLevel() {
 
                 loadingUI.update(80, UIConfig.LOADING.STEP_SPAWN);
                 LightManager.init(engine.scene, 20);
-                // FIX: Use .length = 0 to clear array while keeping reference, just in case
+                // Use .length = 0 to clear array while keeping reference, just in case
                 pickups.length = 0;
 
                 const entities = Spawner.spawnEntities(engine, mapData, generator, builder, audioManager);
@@ -202,7 +201,7 @@ async function loadLevel() {
                 enemies = entities.enemies;
                 exitObject = entities.exit;
 
-                // FIX: Explicitly push spawned items to the global array
+                // Explicitly push spawned items to the global array
                 if (entities.pickups && entities.pickups.length > 0) {
                     pickups.push(...entities.pickups);
                     console.log(`[Game] Loaded ${pickups.length} map loot items.`);
@@ -360,6 +359,28 @@ document.addEventListener('mousedown', (e) => {
 document.addEventListener('keydown', (e) => {
     if (!gameActive || isDying) return;
     if (!engine.controls.isLocked) return;
+
+    // WEAPON SWITCHING (1-7)
+    const keyNum = parseInt(e.key);
+    if (!isNaN(keyNum) && keyNum >= 1 && keyNum <= 7) {
+        const newWeaponId = state.trySwitchWeaponSlot(keyNum);
+        
+        if (newWeaponId) {
+            // 1. Remove old weapon model
+            if (weapon) {
+                // We don't have a clean .dispose() on Weapon class yet, 
+                // but removing from camera is enough for now.
+                engine.camera.remove(weapon.mesh);
+                if (weapon.flashLight) engine.camera.remove(weapon.flashLight); // If detached
+            }
+
+            // 2. Create new weapon
+            weapon = WeaponFactory.create(newWeaponId, engine.camera, audioManager);
+            
+            // 3. Play Equip Sound 
+            // audioManager.playSFX('equip');
+        }
+    }
 
     switch (e.code) {
         case 'KeyN': if (minimap) minimap.toggleRadar(); break;

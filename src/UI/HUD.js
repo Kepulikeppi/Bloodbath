@@ -1,85 +1,77 @@
 import { state } from '../Game/GameState.js';
+import { WeaponConfig } from '../WeaponConfig.js';
+import { UIConfig } from '../UIConfig.js';
 
 export class HUD {
     constructor() {
-        this.elHP = document.getElementById('val-hp');
-        this.elArmor = document.getElementById('val-armor');
-        this.elXP = document.getElementById('val-xp');
-        this.elMetal = document.getElementById('val-metal');
-        this.elElec = document.getElementById('val-elec');
-        this.elChip = document.getElementById('val-chip');
-        this.elPills = document.getElementById('val-pills');
+        // Cache elements
+        this.xpVal = document.getElementById('val-xp');
+        
+        this.scrapVal = document.getElementById('val-metal');
+        this.elecVal = document.getElementById('val-elec');
+        this.chipVal = document.getElementById('val-chip');
+        this.pillsVal = document.getElementById('val-pills');
 
-        this.elAmmo = document.getElementById('val-ammo');
-        this.elWpnName = document.getElementById('val-weapon-name');
+        this.hpVal = document.getElementById('val-hp');
+        this.armorVal = document.getElementById('val-armor');
 
-        this.update();
+        this.weaponName = document.getElementById('val-weapon-name');
+        this.ammoVal = document.getElementById('val-ammo');
+        
+        this.slots = [];
+        for(let i=1; i<=6; i++) {
+            this.slots[i] = document.getElementById(`slot-${i}`);
+        }
     }
 
     update() {
-        // 'd' is the raw data object inside the class
-        const d = state.data;
+        // 1. Resources
+        this.xpVal.innerText = state.data.xp;
+        this.scrapVal.innerText = state.data.materials.metal;
+        this.elecVal.innerText = state.data.materials.electronics;
+        this.chipVal.innerText = state.data.materials.microchips;
+        this.pillsVal.innerText = state.data.consumables.ragePills;
 
-        if (this.elHP) this.elHP.innerText = Math.ceil(d.hp);
-        if (this.elArmor) this.elArmor.innerText = (d.armor * 100) + "%";
+        // 2. Vitals
+        this.hpVal.innerText = Math.ceil(state.data.hp);
+        this.armorVal.innerText = Math.ceil(state.data.armor) + "%";
+        
+        // Color HP warning
+        if (state.data.hp < 30) this.hpVal.style.color = '#ff0000';
+        else this.hpVal.style.color = '#ffffff';
 
-        if (this.elXP) this.elXP.innerText = d.xp;
-        if (this.elMetal) this.elMetal.innerText = d.materials.metal;
-        if (this.elElec) this.elElec.innerText = d.materials.electronics;
-        if (this.elChip) this.elChip.innerText = d.materials.microchips;
-        if (this.elPills) this.elPills.innerText = d.consumables.ragePills;
-
-        // Weapon Info
-        let weaponId = null;
-        if (d.currentSlot === 2) weaponId = 'PISTOL_9MM';
-        if (d.currentSlot === 3) weaponId = 'JOLT_DIPLOMAT';
-
-        if (weaponId) {
-            const wConfig = state.getWeaponState(weaponId); // This returns the state object { magCurrent, ... }
-            // Wait, I need the config for the name and ammo type.
-            // I should import WeaponConfig in HUD.js or access it via state if possible, but state doesn't expose config directly.
-            // I'll assume I need to import WeaponConfig.
-
-            // Actually, let's just hardcode the mapping for now or import WeaponConfig.
-            // Importing WeaponConfig is cleaner.
-
-            // Since I can't easily add an import at the top with this tool without replacing the whole file or using multi_replace,
-            // and I want to keep it simple, I'll use a local mapping or just check the ID.
-
-            let name = "UNKNOWN";
-            let ammoType = "9mm";
-
-            if (weaponId === 'PISTOL_9MM') { name = "9MM PISTOL"; ammoType = "9mm"; }
-            if (weaponId === 'JOLT_DIPLOMAT') { name = "JOLT DIPLOMAT"; ammoType = "44mag"; }
-
-            if (this.elWpnName) this.elWpnName.innerText = name;
-
-            if (this.elAmmo) {
-                const wState = state.getWeaponState(weaponId);
-                const reserve = d.ammo[ammoType];
-                this.elAmmo.innerText = `${wState.magCurrent} / ${reserve}`;
+        // 3. Weapon Info
+        const wId = state.data.activeWeaponId;
+        const wConf = WeaponConfig[wId];
+        
+        if (wConf) {
+            this.weaponName.innerText = wConf.name;
+            
+            if (wConf.type === 'MELEE') {
+                this.ammoVal.innerText = "--";
+            } else {
+                const wState = state.getWeaponState(wId);
+                const reserve = state.data.ammo[wConf.ammoType];
+                this.ammoVal.innerText = `${wState.magCurrent} / ${reserve}`;
             }
-        } else {
-            if (this.elWpnName) this.elWpnName.innerText = "UNARMED";
-            if (this.elAmmo) this.elAmmo.innerText = "- / -";
         }
 
-        // Slots styling
-        for (let i = 1; i <= 6; i++) {
-            const slotEl = document.getElementById(`slot-${i}`);
-            if (slotEl) {
-                // Active Highlight
-                if (i === d.currentSlot) slotEl.classList.add('active'); // Changed currentWeaponSlot to currentSlot
-                else slotEl.classList.remove('active');
+        // 4. Weapon Slots (1-6)
+        for(let i=1; i<=6; i++) {
+            const el = this.slots[i];
+            if (!el) continue;
 
-                // Dim if not owned (Check the Class Method, not data)
-                if (state.hasWeapon(i)) {
-                    slotEl.style.opacity = 1;
-                    slotEl.style.color = "#fff";
-                } else {
-                    slotEl.style.opacity = 0.3;
-                    slotEl.style.color = "#500";
-                }
+            const status = state.getSlotStatus(i); // 'active', 'owned', 'locked'
+            
+            // Reset classes
+            el.className = 'slot';
+            
+            if (status === 'active') {
+                el.classList.add('active'); // Bright Red
+            } else if (status === 'owned') {
+                el.classList.add('owned'); // Dark Red
+            } else {
+                el.classList.add('locked'); // Grey/Dim
             }
         }
     }

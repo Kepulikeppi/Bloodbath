@@ -50,13 +50,38 @@
     display: flex; flex-direction: column; align-items: flex-end; gap: 0.8vw;
 }
 .weapon-slots { display: flex; gap: 0.4vw; }
+
 .slot {
     width: 2.5vw; height: 2.5vw; min-width: 30px; min-height: 30px;
-    border: 0.15vw solid #333; background: rgba(0,0,0,0.5);
+    border: 0.15vw solid #333; 
     display: flex; justify-content: center; align-items: center;
-    color: #333; font-size: 1.2vw;
+    font-size: 1.2vw;
+    transition: all 0.1s;
 }
-.slot.active { border-color: #f00; color: #f00; background: rgba(50, 0, 0, 0.8); box-shadow: 0 0 1vw #f00; }
+
+/* LOCKED (Slot empty or unowned) */
+.slot.locked {
+    background: rgba(0,0,0,0.3);
+    color: #555;
+    border-color: #333;
+}
+
+/* OWNED (Inactive but available) */
+.slot.owned {
+    background: rgba(50, 0, 0, 0.4);
+    color: #800;
+    border-color: #500;
+}
+
+/* ACTIVE (Selected) */
+.slot.active {
+    background: #500; /* Bright Red Background */
+    color: #fff;
+    border-color: #f00;
+    box-shadow: 0 0 1vw #f00;
+    font-weight: bold;
+    transform: scale(1.1);
+}
 .ammo-display {
     background: rgba(0, 0, 0, 0.8); border: 0.15vw solid #f00;
     padding: 1vw 1.5vw; text-align: right; min-width: 10vw;

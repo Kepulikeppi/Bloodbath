@@ -6,45 +6,52 @@ export class Weapon {
         this.camera = camera;
         this.config = config;
         
-        // Container Group
+        // Container for the weapon model
         this.mesh = new THREE.Group();
         
-        // USE CONFIG VALUES
-        // Use defaults if config is missing (safety)
-        const x = config.position ? config.position.x : 0.35;
-        const y = config.position ? config.position.y : -0.3;
-        const z = config.position ? config.position.z : -0.2;
-
-        this.mesh.position.set(x, y, z); 
+        // Load default position/rotation from config
+        const pos = config.position || { x: 0.35, y: -0.3, z: -0.5 };
+        this.mesh.position.set(pos.x, pos.y, pos.z);
         
-        this.camera.add(this.mesh);
-
-        // State
-        this.isActing = false;
-        this.actionTimer = 0;
-        
-        // Base Transforms
+        // Save base transforms for sway/bob calculations
         this.basePos = this.mesh.position.clone();
         this.baseRot = this.mesh.rotation.clone();
+        
+        // State flags
+        this.isActing = false; // Shooting/Swinging
+        
+        // Attach to camera so it moves with player head
+        this.camera.add(this.mesh);
     }
 
-    // Placeholder
-    trigger() { return false; }
-
+    // Default update loop (Sway & Bob)
     update(delta, isMoving, time) {
-        // 1. HANDLE BOBBING
-        let bobY = 0;
-        let bobX = 0;
-
+        // 1. Weapon Sway (Lag behind camera movement)
+        // We don't have direct mouse delta here easily, so we skip sway for now 
+        // or rely on a simplified version if passed. 
+        // For now, we just reset to base.
+        
+        // 2. Weapon Bob (Breathing/Walking)
         if (isMoving) {
-            bobY = Math.sin(time * WeaponConfig.BOB_SPEED) * WeaponConfig.BOB_AMOUNT;
-            bobX = Math.cos(time * WeaponConfig.BOB_SPEED * 0.5) * (WeaponConfig.BOB_AMOUNT * 0.5);
+            const bobSpeed = WeaponConfig.BOB_SPEED || 10;
+            const bobAmount = WeaponConfig.BOB_AMOUNT || 0.05;
+            this.mesh.position.y = this.basePos.y + Math.sin(time * bobSpeed) * bobAmount;
+            this.mesh.position.x = this.basePos.x + Math.cos(time * bobSpeed * 0.5) * bobAmount;
         } else {
-            bobY = Math.sin(time * 1.5) * (WeaponConfig.BOB_AMOUNT * 0.1);
+            // Idle breathing
+            this.mesh.position.y = this.basePos.y + Math.sin(time * 2) * 0.01;
+            this.mesh.position.x = this.basePos.x;
         }
+    }
 
-        // 2. APPLY MOVEMENT
-        this.mesh.position.y = this.basePos.y + bobY;
-        this.mesh.position.x = this.basePos.x + bobX;
+    // Cleanup
+    dispose() {
+        if (this.mesh.parent) this.mesh.parent.remove(this.mesh);
+        this.mesh.traverse((child) => {
+            if (child.isMesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            }
+        });
     }
 }
