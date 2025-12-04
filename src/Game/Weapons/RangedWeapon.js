@@ -12,8 +12,9 @@ export class RangedWeapon extends Weapon {
         this.isReloading = false;
         this.triggerHeld = false; 
         this.fireTimer = 0;       
+
+        this.currentRecoilPitch = 0;
         
-        // Muzzle position placeholder
         this.muzzleOffset = new THREE.Vector3(0, 0.1, -0.5);
     }
 
@@ -47,12 +48,16 @@ export class RangedWeapon extends Weapon {
             return false; 
         }
 
-        // 2. Consume Ammo
+        // 2. Consume Ammo & Record Shot
         state.consumeAmmo(weaponId);
+        
+        // FIX: This was missing, causing accuracy to go > 100%
+        state.recordShot();
+
         this.fireTimer = this.config.fireRate;
         this.recoilTimer = 1.0; 
 
-        // 3. FIRE RAYCAST (Hit Detection First)
+        // 3. Hit Detection
         const shots = this.config.shotCount || 1;
         const spread = this.config.spread || 0;
 
@@ -66,13 +71,12 @@ export class RangedWeapon extends Weapon {
             }));
         }
 
-        // 4. APPLY CAMERA RECOIL (No Recovery)
-        // We simply apply the rotation once. The player must correct it manually.
+        // 4. Camera Recoil (Instant)
         if (this.config.cameraRecoil) {
             this.camera.rotateX(this.config.cameraRecoil);
         }
 
-        // 5. Visual Effects & Audio
+        // 5. Visuals & Audio
         const muzzlePos = this.muzzleOffset.clone();
         this.mesh.localToWorld(muzzlePos);
         LightManager.pulse(muzzlePos, this.config.flashColor, 0.05, 20, 5);
@@ -107,10 +111,8 @@ export class RangedWeapon extends Weapon {
     }
 
     update(delta, isMoving, time) {
-        // Fire Rate Cooldown
         if (this.fireTimer > 0) this.fireTimer -= delta;
 
-        // Auto-Fire Logic
         if (this.config.isAuto && this.triggerHeld && this.fireTimer <= 0) {
             this.tryFire();
         }
@@ -118,9 +120,16 @@ export class RangedWeapon extends Weapon {
         if (!this.isReloading) {
             super.update(delta, isMoving, time);
             
-            // Note: Camera Recoil recovery logic removed.
+            if (this.currentRecoilPitch > 0) {
+                const recoverySpeed = 2.0; 
+                const recovery = this.currentRecoilPitch * delta * recoverySpeed; 
+                
+                this.camera.rotateX(-recovery); 
+                this.currentRecoilPitch -= recovery;
+                
+                if (this.currentRecoilPitch < 0.0001) this.currentRecoilPitch = 0;
+            }
 
-            // Model Recoil Animation (Visual only)
             if (this.recoilTimer > 0) {
                 this.recoilTimer -= delta * this.config.recoilSnap;
                 if (this.recoilTimer < 0) this.recoilTimer = 0;
