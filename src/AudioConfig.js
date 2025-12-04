@@ -16,7 +16,7 @@ export const AudioConfig = {
                 RELOAD: './assets/sounds/pistol-reload.mp3',
                 EMPTY: './assets/sounds/pistol-empty-click.mp3'
             },
-            'PISTOL_44': {
+            'JOLT_DIPLOMAT': {
                 SHOOT: './assets/sounds/pistol_44.mp3', 
                 RELOAD: './assets/sounds/pistol_44_reload.mp3',
                 EMPTY: './assets/sounds/pistol-empty-click.mp3' 

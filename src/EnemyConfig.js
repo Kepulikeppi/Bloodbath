@@ -6,7 +6,7 @@ export const EnemyConfig = {
         // Loot System: Flesh & Blood drops
         enemyType: EnemyTypes.BIO, 
 
-        hp: 50,
+        hp: 45,
         speed: 3.5,
         
         // AI Behavior
