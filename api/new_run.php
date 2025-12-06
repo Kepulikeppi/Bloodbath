@@ -15,16 +15,18 @@ if ($requestedName !== null) {
     $name = isset($_SESSION['session_name']) ? $_SESSION['session_name'] : "DEFAULT";
 }
 
-// Reset State
+// Reset State in Memory
 $_SESSION['session_name'] = $name;
 $_SESSION['level'] = 1;
 $_SESSION['seed'] = rand(100000, 999999);
 $_SESSION['start_time'] = time();
 
-// FIX: Wipe any previous run stats so we start fresh (100 HP, etc)
+// Wipe previous stats
 unset($_SESSION['player_data']);
 
-session_write_close();
+// Send Response & Close Connection
+send_json_background(['status' => 'ok', 'name' => $name]);
 
-send_json(['status' => 'ok', 'name' => $name]);
+// Write to Disk (Background)
+session_write_close();
 ?>

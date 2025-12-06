@@ -10,7 +10,9 @@ if (isset($input['player_data'])) {
     $status = 'error';
 }
 
-session_write_close();
+// 1. Tell Client: "We got it, carry on."
+send_json_background(['status' => $status]);
 
-send_json(['status' => $status]);
+// 2. Heavy Lifting: Write file to disk (Happens in background)
+session_write_close();
 ?>
